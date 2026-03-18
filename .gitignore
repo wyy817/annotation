@@ -1,0 +1,47 @@
+# ===== Java / Maven =====
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+# ===== Node / Frontend =====
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# ===== Python =====
+python-service/__pycache__/
+python-service/*.pyc
+python-service/*.pyo
+python-service/.venv/
+python-service/venv/
+*.pyc
+__pycache__/
+
+# ===== Data / Uploads (不推送实际数据文件) =====
+data/uploads/*
+data/exports/*
+!data/uploads/.gitkeep
+!data/exports/.gitkeep
+
+# ===== Python storage (WSI 切片缓存等) =====
+python-service/storage/*
+!python-service/storage/.gitkeep
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== 本地配置 =====
+*.env
+application-local.yml
+application-local.properties

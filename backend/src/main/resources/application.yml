@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 4096MB
+      max-request-size: 4096MB
+  datasource:
+    url: jdbc:postgresql://localhost:5432/wsi_platform
+    username: postgres
+    password: wyy040817
+    driver-class-name: org.postgresql.Driver
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: UTC
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+wsi:
+  storage:
+    upload-dir: ./data/uploads
+    tile-dir: ./data/tiles
+    export-dir: ./data/exports
+  python-service:
+    base-url: http://localhost:8001
