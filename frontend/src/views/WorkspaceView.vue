@@ -6,9 +6,16 @@
         <h1 class="logo">WSI Platform</h1>
         <p class="subtitle">全切片图像标注平台</p>
       </div>
-      <el-button type="primary" :icon="Plus" @click="showCreate = true">
-        新建工作空间
-      </el-button>
+      <div class="header-right">
+        <span class="user-info">
+          <el-tag type="success" size="small">标注者</el-tag>
+          {{ userStore.user?.username }}
+        </span>
+        <el-button size="small" @click="handleLogout">退出登录</el-button>
+        <el-button type="primary" :icon="Plus" @click="showCreate = true">
+          新建工作空间
+        </el-button>
+      </div>
     </header>
 
     <!-- Loading skeleton -->
@@ -66,12 +73,19 @@ import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useUserStore } from '@/stores/userStore'
 import WorkspaceCard from '@/components/WorkspaceCard.vue'
 import CreateWorkspaceDialog from '@/components/CreateWorkspaceDialog.vue'
 import RenameWorkspaceDialog from '@/components/RenameWorkspaceDialog.vue'
 
 const router = useRouter()
 const store = useWorkspaceStore()
+const userStore = useUserStore()
+
+function handleLogout() {
+  userStore.logout()
+  router.replace({ name: 'login' })
+}
 
 const showCreate = ref(false)
 const showRename = ref(false)
@@ -127,10 +141,24 @@ async function confirmDelete() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 40px;
+  padding: 16px 40px;
   background: #fff;
   border-bottom: 1px solid #ebeef5;
   margin-bottom: 32px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #606266;
 }
 
 .logo {

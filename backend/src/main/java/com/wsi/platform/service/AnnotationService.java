@@ -50,19 +50,25 @@ public class AnnotationService {
     }
 
     /**
-     * Mark a slide's annotation status as DONE (completed by user).
-     * Throws if the slide does not exist or has no annotations yet.
+     * Submit a slide for review (called by ANNOTATOR).
+     * Sets annoStatus=DONE, reviewStatus=PENDING_REVIEW, annotatorId from current user.
+     * Also handles re-submission after REJECTED.
      */
     @Transactional
-    public void markDone(Long slideId) {
+    public void markDone(Long slideId, Long annotatorId) {
         Slide slide = slideMapper.selectById(slideId);
         if (slide == null) {
             throw new IllegalArgumentException("Slide not found: " + slideId);
         }
         if ("NOT_STARTED".equals(slide.getAnnoStatus())) {
-            throw new IllegalStateException("Cannot complete a slide with no annotations.");
+            throw new IllegalStateException("Cannot submit a slide with no annotations.");
         }
         slide.setAnnoStatus("DONE");
+        slide.setReviewStatus("PENDING_REVIEW");
+        slide.setAnnotatorId(annotatorId);
+        // Clear previous rejection
+        slide.setReviewerComment(null);
+        slide.setReviewedAt(null);
         slideMapper.updateById(slide);
     }
 }

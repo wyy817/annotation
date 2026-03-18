@@ -28,6 +28,7 @@
         <el-tag size="small" type="info">{{ slide.format }}</el-tag>
         <el-tag size="small" :type="statusType(slide.status)">{{ statusLabel(slide.status) }}</el-tag>
         <el-tag size="small" :type="annoType(slide.annoStatus)">{{ annoLabel(slide.annoStatus) }}</el-tag>
+        <el-tag v-if="slide.reviewStatus && slide.reviewStatus !== 'NOT_SUBMITTED'" size="small" :type="reviewTagType(slide.reviewStatus)">{{ reviewLabel(slide.reviewStatus) }}</el-tag>
       </div>
       <p class="meta">{{ formatSize(slide.fileSize) }}</p>
     </div>
@@ -66,6 +67,9 @@
     </div>
     <div class="row-meta">
       <el-tag size="small" :type="annoType(slide.annoStatus)">{{ annoLabel(slide.annoStatus) }}</el-tag>
+    </div>
+    <div class="row-meta">
+      <el-tag v-if="slide.reviewStatus && slide.reviewStatus !== 'NOT_SUBMITTED'" size="small" :type="reviewTagType(slide.reviewStatus)">{{ reviewLabel(slide.reviewStatus) }}</el-tag>
     </div>
     <div class="row-actions" @click.stop>
       <el-dropdown trigger="click" @command="handleCommand">
@@ -109,6 +113,12 @@ function annoType(s) {
 }
 function annoLabel(s) {
   return { NOT_STARTED: '未标注', IN_PROGRESS: '标注中', DONE: '已完成' }[s] ?? s
+}
+function reviewTagType(s) {
+  return { PENDING_REVIEW: 'warning', APPROVED: 'success', REJECTED: 'danger' }[s] ?? 'info'
+}
+function reviewLabel(s) {
+  return { PENDING_REVIEW: '待审核', APPROVED: '已通过', REJECTED: '已拒绝' }[s] ?? s
 }
 function formatSize(bytes) {
   if (!bytes) return ''
@@ -203,7 +213,7 @@ function formatSize(bytes) {
 /* ── List row ── */
 .slide-row {
   display: grid;
-  grid-template-columns: 56px 1fr 60px 80px 90px 90px 40px;
+  grid-template-columns: 56px 1fr 60px 80px 90px 90px 90px 40px;
   align-items: center;
   gap: 12px;
   padding: 8px 16px;

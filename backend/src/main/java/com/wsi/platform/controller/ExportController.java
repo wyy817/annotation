@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.List;
 
 /**
  * POST /api/slides/{slideId}/export          — trigger export, returns ExportTask (PENDING)
+ * POST /api/export/batch                     — trigger batch export, returns one ExportTask
  * GET  /api/export-tasks/{taskId}            — poll status (PENDING→PROCESSING→DONE/ERROR)
  * GET  /api/export-tasks/{taskId}/download   — stream ZIP when DONE
  */
@@ -29,6 +31,22 @@ public class ExportController {
             return Result.success(exportService.startExport(slideId));
         } catch (IllegalArgumentException e) {
             return Result.error(404, e.getMessage());
+        } catch (IllegalStateException e) {
+            return Result.error(409, e.getMessage());
+        }
+    }
+
+    @lombok.Data
+    static class BatchExportRequest {
+        private List<Long> slideIds;
+    }
+
+    @PostMapping("/api/export/batch")
+    public Result<ExportTask> batchExport(@RequestBody BatchExportRequest req) {
+        if (req.getSlideIds() == null || req.getSlideIds().isEmpty())
+            return Result.error(400, "slideIds 不能为空");
+        try {
+            return Result.success(exportService.startBatchExport(req.getSlideIds()));
         } catch (IllegalStateException e) {
             return Result.error(409, e.getMessage());
         }

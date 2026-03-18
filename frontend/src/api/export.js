@@ -11,8 +11,13 @@ export const exportApi = {
     return http.get(`/export-tasks/${taskId}`)
   },
 
-  /** Direct download URL (bypasses axios — binary stream). */
-  downloadUrl(taskId) {
-    return `/api/export-tasks/${taskId}/download`
+  /** Start batch export for multiple slides. Returns one combined ExportTask. */
+  startBatchExport(slideIds) {
+    return http.post('/export/batch', { slideIds })
+  },
+
+  /** Download ZIP as blob via axios (carries JWT token). Returns Promise<Blob>. */
+  downloadFile(taskId) {
+    return http.get(`/export-tasks/${taskId}/download`, { responseType: 'blob' })
   }
 }

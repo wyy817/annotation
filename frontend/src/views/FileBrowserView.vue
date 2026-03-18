@@ -34,7 +34,24 @@
         <el-option label="已完成" value="DONE" />
       </el-select>
 
+      <!-- Review status filter -->
+      <el-select v-model="filterReview" clearable placeholder="审核状态" style="width:110px">
+        <el-option label="未提交" value="NOT_SUBMITTED" />
+        <el-option label="待审核" value="PENDING_REVIEW" />
+        <el-option label="已通过" value="APPROVED" />
+        <el-option label="已拒绝" value="REJECTED" />
+      </el-select>
+
       <div style="flex:1" />
+
+      <!-- Batch export -->
+      <el-tooltip content="导出所有已通过审核的切片" placement="bottom">
+        <el-button
+          :icon="Download"
+          :disabled="!approvedSlides.length"
+          @click="showBatchExport = true"
+        >批量导出 ({{ approvedSlides.length }})</el-button>
+      </el-tooltip>
 
       <!-- View toggle -->
       <el-button-group>
@@ -85,6 +102,7 @@
         <div style="width:80px">大小</div>
         <div style="width:90px">处理状态</div>
         <div style="width:90px">标注状态</div>
+        <div style="width:90px">审核状态</div>
         <div style="width:40px"></div>
       </div>
       <SlideCard
@@ -112,6 +130,9 @@
       @moved="onMoved"
     />
 
+    <!-- Batch export dialog -->
+    <BatchExportDialog v-model="showBatchExport" :slides="approvedSlides" />
+
     <!-- Delete confirm -->
     <el-dialog v-model="showDelete" title="删除图像" width="400px">
       <p>
@@ -132,7 +153,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Upload, Search, Grid, List } from '@element-plus/icons-vue'
+import { ArrowLeft, Upload, Search, Grid, List, Download } from '@element-plus/icons-vue'
 
 import { useSlideStore } from '@/stores/slideStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -140,6 +161,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore'
 import SlideCard from '@/components/SlideCard.vue'
 import UploadDialog from '@/components/UploadDialog.vue'
 import MoveSlideDialog from '@/components/MoveSlideDialog.vue'
+import BatchExportDialog from '@/components/BatchExportDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -154,6 +176,7 @@ const workspace = computed(() => wsStore.workspaces.find((w) => w.id === workspa
 const searchText = ref('')
 const sortKey = ref('createdAt_desc')
 const filterStatus = ref('')
+const filterReview = ref('')
 const viewMode = ref('grid')
 
 // ── dialog state ──────────────────────────────────────────────────────────
@@ -163,8 +186,13 @@ const moveTarget = ref(null)
 const showDelete = ref(false)
 const deleteTarget = ref(null)
 const deleting = ref(false)
+const showBatchExport = ref(false)
 
 // ── computed ──────────────────────────────────────────────────────────────
+const approvedSlides = computed(() =>
+  store.slides.filter(s => s.reviewStatus === 'APPROVED' && s.status === 'READY')
+)
+
 const filteredSlides = computed(() => {
   let list = [...store.slides]
 
@@ -174,6 +202,9 @@ const filteredSlides = computed(() => {
 
   // filter by anno status
   if (filterStatus.value) list = list.filter((s) => s.annoStatus === filterStatus.value)
+
+  // filter by review status
+  if (filterReview.value) list = list.filter((s) => (s.reviewStatus ?? 'NOT_SUBMITTED') === filterReview.value)
 
   // sort
   list.sort((a, b) => {

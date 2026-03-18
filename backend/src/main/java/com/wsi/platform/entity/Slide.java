@@ -50,6 +50,22 @@ public class Slide {
      */
     private String annoStatus;
 
+    /** The annotator who worked on this slide */
+    private Long annotatorId;
+
+    /**
+     * Review status.
+     * Values: NOT_SUBMITTED | PENDING_REVIEW | APPROVED | REJECTED
+     */
+    private String reviewStatus;
+
+    /** The reviewer who approved/rejected */
+    private Long reviewerId;
+
+    private String reviewerComment;
+
+    private LocalDateTime reviewedAt;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

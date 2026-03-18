@@ -5,12 +5,16 @@ import com.wsi.platform.entity.Slide;
 import com.wsi.platform.mapper.ExportTaskMapper;
 import com.wsi.platform.mapper.SlideMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * Public API for export tasks.
  * Heavy lifting (Python calls + ZIP) is delegated to ExportAsyncService (@Async bean).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExportService {
@@ -28,6 +32,8 @@ public class ExportService {
         if (slide == null) throw new IllegalArgumentException("Slide not found: " + slideId);
         if (!"READY".equals(slide.getStatus()))
             throw new IllegalStateException("Slide not READY (status=" + slide.getStatus() + ")");
+        if (!"APPROVED".equals(slide.getReviewStatus()))
+            throw new IllegalStateException("只有已通过审核（APPROVED）的切片才可以导出");
 
         ExportTask task = new ExportTask();
         task.setSlideId(slideId);
@@ -40,6 +46,42 @@ public class ExportService {
 
     public ExportTask getTask(Long taskId) {
         return exportTaskMapper.selectById(taskId);
+    }
+
+    /**
+     * Start a single combined batch export for all given slideIds.
+     * Validates each slide before starting; throws if none are eligible.
+     * Returns one ExportTask covering all slides.
+     */
+    public ExportTask startBatchExport(List<Long> slideIds) {
+        // Validate — collect eligible slide IDs
+        List<Long> eligible = slideIds.stream().filter(slideId -> {
+            Slide slide = slideMapper.selectById(slideId);
+            if (slide == null) {
+                log.warn("Batch export: slide {} not found, skipping", slideId);
+                return false;
+            }
+            if (!"READY".equals(slide.getStatus())) {
+                log.warn("Batch export: slide {} not READY, skipping", slideId);
+                return false;
+            }
+            if (!"APPROVED".equals(slide.getReviewStatus())) {
+                log.warn("Batch export: slide {} not APPROVED, skipping", slideId);
+                return false;
+            }
+            return true;
+        }).toList();
+
+        if (eligible.isEmpty())
+            throw new IllegalStateException("没有符合条件的切片（需为已通过审核状态）");
+
+        ExportTask task = new ExportTask();
+        // slideId is null for batch tasks
+        task.setStatus("PENDING");
+        exportTaskMapper.insert(task);
+
+        exportAsyncService.doBatchExport(task.getId(), eligible);
+        return task;
     }
 
     /** Returns ZIP path only when task is DONE, null otherwise. */

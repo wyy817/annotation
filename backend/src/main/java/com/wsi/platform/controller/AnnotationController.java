@@ -2,6 +2,7 @@ package com.wsi.platform.controller;
 
 import com.wsi.platform.common.Result;
 import com.wsi.platform.entity.Annotation;
+import com.wsi.platform.security.UserContext;
 import com.wsi.platform.service.AnnotationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -35,11 +36,12 @@ public class AnnotationController {
 
     /**
      * PATCH /api/slides/{slideId}/annotations/complete
-     * Mark the slide's annotation status as DONE (user-initiated).
+     * Submit the slide for review (annotator-initiated).
      */
     @PatchMapping("/api/slides/{slideId}/annotations/complete")
     public Result<Void> markDone(@PathVariable Long slideId) {
-        annotationService.markDone(slideId);
+        Long annotatorId = UserContext.get() != null ? UserContext.get().id() : null;
+        annotationService.markDone(slideId, annotatorId);
         return Result.success(null);
     }
 }

@@ -24,14 +24,18 @@ import java.util.zip.*;
 
 /**
  * Async export processor — kept in a separate bean so that @Async proxying works.
- * Orchestrates: generate-mask → extract-patches → ZIP packaging → ExportTask update.
  *
- * ZIP contents:
+ * Single export ZIP contents:
  *   thumbnail.jpg       — slide thumbnail
  *   mask.png            — semantic mask (pixel = class index)
- *   patches/            — one PNG per annotation ROI (256×256)
  *   annotations.json    — COCO-style metadata
  *   report.txt          — summary statistics
+ *
+ * Batch export ZIP contents:
+ *   image/{slideId}.jpg — thumbnail per slide
+ *   mask/{slideId}.png  — mask per slide
+ *   annotations.json    — combined metadata for all slides
+ *   report.txt          — combined summary
  */
 @Slf4j
 @Service
@@ -45,6 +49,8 @@ public class ExportAsyncService {
     private final PythonServiceClient pythonClient;
     private final StorageProperties props;
     private final ObjectMapper objectMapper;
+
+    // ── Single-slide export ───────────────────────────────────────────────────
 
     @Async
     public void doExport(Long taskId) {
@@ -75,19 +81,7 @@ public class ExportAsyncService {
                 log.warn("generate-mask skipped for slide {}: {}", slide.getId(), e.getMessage());
             }
 
-            // ── Step 2: extract patches ───────────────────────────────────────
-            String patchDir = null;
-            int patchCount = 0;
-            try {
-                PythonServiceClient.ExtractPatchesResponse r = pythonClient.extractPatches(
-                        slide.getId(), slide.getOriginalPath(), annDicts, 256);
-                patchDir = r.getPatchDir();
-                patchCount = r.getPatchCount();
-            } catch (Exception e) {
-                log.warn("extract-patches skipped for slide {}: {}", slide.getId(), e.getMessage());
-            }
-
-            // ── Step 3: package ZIP ───────────────────────────────────────────
+            // ── Step 2: package ZIP ───────────────────────────────────────────
             Path exportDir = Paths.get(props.getStorage().getExportDir())
                     .resolve(String.valueOf(slide.getId())).toAbsolutePath();
             Files.createDirectories(exportDir);
@@ -102,35 +96,93 @@ public class ExportAsyncService {
                 if (maskPath != null)
                     addFile(zos, Paths.get(maskPath), "mask.png");
 
-                if (patchDir != null) {
-                    Path pd = Paths.get(patchDir);
-                    if (Files.isDirectory(pd)) {
-                        try (var stream = Files.list(pd)) {
-                            stream.filter(p -> p.toString().endsWith(".png"))
-                                  .sorted()
-                                  .forEach(p -> {
-                                      try { addFile(zos, p, "patches/" + p.getFileName()); }
-                                      catch (IOException ex) {
-                                          log.warn("Skipping patch {}: {}", p, ex.getMessage());
-                                      }
-                                  });
-                        }
-                    }
-                }
-
                 addString(zos, buildCocoJson(slide, labels, annotations, labelMap), "annotations.json");
-                addString(zos, buildReport(slide, labels, annotations, patchCount), "report.txt");
+                addString(zos, buildReport(slide, labels, annotations), "report.txt");
             }
 
             task.setStatus("DONE");
             task.setZipPath(zipPath.toString());
             task.setTotal(annotations.size());
-            task.setReady(patchCount);
             exportTaskMapper.updateById(task);
             log.info("Export task {} DONE → {}", taskId, zipPath);
 
         } catch (Exception e) {
             log.error("Export task {} FAILED: {}", taskId, e.getMessage(), e);
+            task.setStatus("ERROR");
+            exportTaskMapper.updateById(task);
+        }
+    }
+
+    // ── Batch export (one combined ZIP) ──────────────────────────────────────
+
+    @Async
+    public void doBatchExport(Long taskId, List<Long> slideIds) {
+        ExportTask task = exportTaskMapper.selectById(taskId);
+        if (task == null) return;
+
+        task.setStatus("PROCESSING");
+        exportTaskMapper.updateById(task);
+
+        try {
+            Path exportDir = Paths.get(props.getStorage().getExportDir())
+                    .resolve("batch_" + taskId).toAbsolutePath();
+            Files.createDirectories(exportDir);
+            Path zipPath = exportDir.resolve("batch_export_" + taskId + ".zip");
+
+            List<Map<String, Object>> allSlideData = new ArrayList<>();
+            int totalAnnotations = 0;
+            int processedSlides = 0;
+
+            try (ZipOutputStream zos = new ZipOutputStream(
+                    new BufferedOutputStream(Files.newOutputStream(zipPath)))) {
+
+                for (Long slideId : slideIds) {
+                    Slide slide = slideMapper.selectById(slideId);
+                    if (slide == null) {
+                        log.warn("Batch export task {}: slide {} not found, skipping", taskId, slideId);
+                        continue;
+                    }
+
+                    List<Label> labels = labelMapper.selectList(
+                            new LambdaQueryWrapper<Label>().eq(Label::getSlideId, slide.getId()));
+                    List<Annotation> annotations = annotationMapper.selectList(
+                            new LambdaQueryWrapper<Annotation>().eq(Annotation::getSlideId, slide.getId()));
+                    Map<Long, Label> labelMap = new HashMap<>();
+                    labels.forEach(l -> labelMap.put(l.getId(), l));
+                    List<Map<String, Object>> annDicts = buildAnnDicts(annotations, labelMap);
+
+                    // image/{slideId}.jpg
+                    if (slide.getThumbnailPath() != null) {
+                        addFile(zos, Paths.get(slide.getThumbnailPath()), "image/" + slideId + ".jpg");
+                    }
+
+                    // mask/{slideId}.png
+                    try {
+                        PythonServiceClient.GenerateMaskResponse r = pythonClient.generateMask(
+                                slide.getId(), slide.getWidth(), slide.getHeight(), annDicts);
+                        addFile(zos, Paths.get(r.getMaskPath()), "mask/" + slideId + ".png");
+                    } catch (Exception e) {
+                        log.warn("generate-mask skipped for slide {} in batch {}: {}", slideId, taskId, e.getMessage());
+                    }
+
+                    totalAnnotations += annotations.size();
+                    processedSlides++;
+                    allSlideData.add(buildSlideAnnotationMap(slide, labels, annotations, labelMap));
+                }
+
+                // One combined annotations.json and report.txt
+                addString(zos, buildCombinedCocoJson(allSlideData), "annotations.json");
+                addString(zos, buildBatchReport(slideIds.size(), processedSlides, totalAnnotations), "report.txt");
+            }
+
+            task.setStatus("DONE");
+            task.setZipPath(zipPath.toString());
+            task.setTotal(totalAnnotations);
+            exportTaskMapper.updateById(task);
+            log.info("Batch export task {} DONE → {} ({} slides)", taskId, zipPath, processedSlides);
+
+        } catch (Exception e) {
+            log.error("Batch export task {} FAILED: {}", taskId, e.getMessage(), e);
             task.setStatus("ERROR");
             exportTaskMapper.updateById(task);
         }
@@ -165,60 +217,88 @@ public class ExportAsyncService {
         catch (Exception e) { return List.of(); }
     }
 
+    private Map<String, Object> buildSlideAnnotationMap(Slide slide, List<Label> labels,
+                                                          List<Annotation> anns,
+                                                          Map<Long, Label> labelMap) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("slide_id", slide.getId());
+        m.put("file_name", slide.getFileName());
+        m.put("width", slide.getWidth());
+        m.put("height", slide.getHeight());
+
+        List<Map<String, Object>> cats = new ArrayList<>();
+        for (Label l : labels) {
+            Map<String, Object> cat = new LinkedHashMap<>();
+            cat.put("id", l.getId());
+            cat.put("name", l.getName());
+            cat.put("color", l.getColor());
+            cat.put("class_index", l.getClassIndex());
+            cats.add(cat);
+        }
+        m.put("categories", cats);
+
+        List<Map<String, Object>> annList = new ArrayList<>();
+        for (Annotation ann : anns) {
+            Map<String, Object> a = new LinkedHashMap<>();
+            a.put("id", ann.getId());
+            a.put("type", ann.getAnnoType());
+            a.put("label_id", ann.getLabelId());
+            Label l = labelMap.get(ann.getLabelId());
+            a.put("label_name", l != null ? l.getName() : null);
+            a.put("coordinates", parseJson(ann.getCoordinates()));
+            annList.add(a);
+        }
+        m.put("annotations", annList);
+        return m;
+    }
+
     private String buildCocoJson(Slide slide, List<Label> labels,
                                   List<Annotation> anns, Map<Long, Label> labelMap) {
         try {
-            Map<String, Object> coco = new LinkedHashMap<>();
-            coco.put("slide_id", slide.getId());
-            coco.put("file_name", slide.getFileName());
-            coco.put("width", slide.getWidth());
-            coco.put("height", slide.getHeight());
-
-            List<Map<String, Object>> cats = new ArrayList<>();
-            for (Label l : labels) {
-                Map<String, Object> cat = new LinkedHashMap<>();
-                cat.put("id", l.getId());
-                cat.put("name", l.getName());
-                cat.put("color", l.getColor());
-                cat.put("class_index", l.getClassIndex());
-                cats.add(cat);
-            }
-            coco.put("categories", cats);
-
-            List<Map<String, Object>> annList = new ArrayList<>();
-            for (Annotation ann : anns) {
-                Map<String, Object> a = new LinkedHashMap<>();
-                a.put("id", ann.getId());
-                a.put("type", ann.getAnnoType());
-                a.put("label_id", ann.getLabelId());
-                Label l = labelMap.get(ann.getLabelId());
-                a.put("label_name", l != null ? l.getName() : null);
-                a.put("coordinates", parseJson(ann.getCoordinates()));
-                annList.add(a);
-            }
-            coco.put("annotations", annList);
-
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(coco);
+            return objectMapper.writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(buildSlideAnnotationMap(slide, labels, anns, labelMap));
         } catch (Exception e) {
             return "{}";
         }
     }
 
-    private String buildReport(Slide slide, List<Label> labels,
-                                List<Annotation> anns, int patchCount) {
+    private String buildCombinedCocoJson(List<Map<String, Object>> allSlideData) {
+        try {
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("slides", allSlideData);
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        } catch (Exception e) {
+            return "{}";
+        }
+    }
+
+    private String buildReport(Slide slide, List<Label> labels, List<Annotation> anns) {
         StringBuilder sb = new StringBuilder();
         sb.append("WSI Annotation Export Report\n");
         sb.append("============================\n");
         sb.append("Slide     : ").append(slide.getFileName()).append("\n");
         sb.append("Dimensions: ").append(slide.getWidth()).append(" x ").append(slide.getHeight()).append("\n");
         sb.append("Annotations: ").append(anns.size()).append("\n");
-        sb.append("Patches    : ").append(patchCount).append("\n");
         sb.append("Labels:\n");
         for (Label l : labels) {
             long cnt = anns.stream().filter(a -> l.getId().equals(a.getLabelId())).count();
             sb.append("  [").append(l.getClassIndex()).append("] ")
               .append(l.getName()).append(" — ").append(cnt).append(" annotation(s)\n");
         }
+        return sb.toString();
+    }
+
+    private String buildBatchReport(int requestedCount, int processedCount, int totalAnnotations) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("WSI Batch Export Report\n");
+        sb.append("=======================\n");
+        sb.append("Requested slides : ").append(requestedCount).append("\n");
+        sb.append("Processed slides : ").append(processedCount).append("\n");
+        sb.append("Total annotations: ").append(totalAnnotations).append("\n");
+        sb.append("\nContents:\n");
+        sb.append("  image/   — slide thumbnails (one per slide)\n");
+        sb.append("  mask/    — semantic masks   (one per slide)\n");
+        sb.append("  annotations.json — combined annotation metadata\n");
         return sb.toString();
     }
 

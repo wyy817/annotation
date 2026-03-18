@@ -121,14 +121,20 @@ function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
 }
 
-function download() {
-  const url = exportApi.downloadUrl(task.value.id)
-  const a   = document.createElement('a')
-  a.href     = url
-  a.download = `export_${task.value.id}.zip`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+async function download() {
+  try {
+    const blob = await exportApi.downloadFile(task.value.id)
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `export_${task.value.id}.zip`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch {
+    // 错误已由 axios 拦截器统一弹出提示
+  }
 }
 
 function reset() {

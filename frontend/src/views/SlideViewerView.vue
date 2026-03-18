@@ -23,53 +23,77 @@
 
         <el-divider direction="vertical" />
 
-        <!-- Draw tools -->
-        <el-button-group>
-          <el-tooltip content="画笔 (B)" placement="bottom">
-            <el-button size="small" :type="currentTool==='brush' ? 'primary' : ''" @click="setTool('brush')">画笔</el-button>
+        <!-- Draw tools (annotator only) -->
+        <template v-if="!isReviewer">
+          <el-button-group>
+            <el-tooltip content="画笔 (B)" placement="bottom">
+              <el-button size="small" :type="currentTool==='brush' ? 'primary' : ''" @click="setTool('brush')">画笔</el-button>
+            </el-tooltip>
+            <el-tooltip content="矩形 ROI (R)" placement="bottom">
+              <el-button size="small" :type="currentTool==='rect' ? 'primary' : ''" @click="setTool('rect')">矩形</el-button>
+            </el-tooltip>
+            <el-tooltip content="多边形 ROI (P)" placement="bottom">
+              <el-button size="small" :type="currentTool==='polygon' ? 'primary' : ''" @click="setTool('polygon')">多边形</el-button>
+            </el-tooltip>
+          </el-button-group>
+
+          <el-divider direction="vertical" />
+
+          <!-- Undo / redo -->
+          <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
+            <el-button size="small" :disabled="historyIndex <= 0" @click="undo">
+              <el-icon><RefreshLeft /></el-icon>
+            </el-button>
           </el-tooltip>
-          <el-tooltip content="矩形 ROI (R)" placement="bottom">
-            <el-button size="small" :type="currentTool==='rect' ? 'primary' : ''" @click="setTool('rect')">矩形</el-button>
+          <el-tooltip content="重做 (Ctrl+Y)" placement="bottom">
+            <el-button size="small" :disabled="historyIndex >= history.length - 1" @click="redo">
+              <el-icon><RefreshRight /></el-icon>
+            </el-button>
           </el-tooltip>
-          <el-tooltip content="多边形 ROI (P)" placement="bottom">
-            <el-button size="small" :type="currentTool==='polygon' ? 'primary' : ''" @click="setTool('polygon')">多边形</el-button>
-          </el-tooltip>
-        </el-button-group>
 
-        <el-divider direction="vertical" />
+          <el-divider direction="vertical" />
 
-        <!-- Undo / redo -->
-        <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
-          <el-button size="small" :disabled="historyIndex <= 0" @click="undo">
-            <el-icon><RefreshLeft /></el-icon>
-          </el-button>
-        </el-tooltip>
-        <el-tooltip content="重做 (Ctrl+Y)" placement="bottom">
-          <el-button size="small" :disabled="historyIndex >= history.length - 1" @click="redo">
-            <el-icon><RefreshRight /></el-icon>
-          </el-button>
-        </el-tooltip>
+          <!-- Save -->
+          <el-button
+            size="small"
+            :loading="saving"
+            :type="isDirty ? 'warning' : 'default'"
+            @click="saveAnnotations"
+          >{{ saving ? '保存中...' : isDirty ? '保存*' : '已保存' }}</el-button>
 
-        <el-divider direction="vertical" />
+          <el-divider direction="vertical" />
+        </template>
 
-        <!-- Save -->
-        <el-button
-          size="small"
-          :loading="saving"
-          :type="isDirty ? 'warning' : 'default'"
-          @click="saveAnnotations"
-        >{{ saving ? '保存中...' : isDirty ? '保存*' : '已保存' }}</el-button>
+        <!-- Annotator: submit for review -->
+        <template v-if="!isReviewer">
+          <el-button
+            v-if="slide?.reviewStatus === 'PENDING_REVIEW'"
+            size="small"
+            type="warning"
+            disabled
+          >待审核中</el-button>
+          <el-button
+            v-else-if="slide?.reviewStatus === 'APPROVED'"
+            size="small"
+            type="success"
+            disabled
+          >已通过</el-button>
+          <el-button
+            v-else
+            size="small"
+            :loading="completing"
+            :disabled="slide?.annoStatus === 'NOT_STARTED'"
+            :type="slide?.reviewStatus === 'REJECTED' ? 'warning' : 'default'"
+            @click="markDone"
+          >{{ slide?.reviewStatus === 'REJECTED' ? '重新提交' : '提交审核' }}</el-button>
+        </template>
 
-        <el-divider direction="vertical" />
-
-        <!-- Mark done -->
-        <el-button
-          size="small"
-          :loading="completing"
-          :type="slide?.annoStatus === 'DONE' ? 'success' : 'default'"
-          :disabled="slide?.annoStatus === 'NOT_STARTED'"
-          @click="markDone"
-        >{{ slide?.annoStatus === 'DONE' ? '已完成' : '标记完成' }}</el-button>
+        <!-- Reviewer: approve / reject -->
+        <template v-if="isReviewer && slide?.reviewStatus === 'PENDING_REVIEW'">
+          <el-divider direction="vertical" />
+          <el-button size="small" type="success" :loading="reviewing === 'approve'" @click="handleApprove">通过</el-button>
+          <el-button size="small" type="danger"  :loading="reviewing === 'reject'"  @click="handleRejectPrompt">拒绝</el-button>
+        </template>
       </div>
 
       <!-- Right: export + zoom controls -->
@@ -92,14 +116,23 @@
       </div>
     </header>
 
+    <!-- ── Rejection banner (annotator only) ─────────────────────────────── -->
+    <div
+      v-if="!isReviewer && slide?.reviewStatus === 'REJECTED' && slide?.reviewerComment"
+      class="reject-banner"
+    >
+      <el-icon style="margin-right:6px"><WarningFilled /></el-icon>
+      <strong>审核未通过：</strong>{{ slide.reviewerComment }}
+    </div>
+
     <!-- ── Export dialog ──────────────────────────────────────────────────── -->
     <ExportDialog v-model="showExportDialog" :slide-id="slideId" />
 
     <!-- ── Body ───────────────────────────────────────────────────────────── -->
     <div class="viewer-body">
-      <!-- Left: label panel -->
+      <!-- Left: label panel (hidden for reviewers) -->
       <LabelPanel
-        v-if="!loading && !errorMsg"
+        v-if="!loading && !errorMsg && !isReviewer"
         :labels="labels"
         :activeId="activeLabelId"
         :brushSize="brushSize"
@@ -197,12 +230,16 @@ import OpenSeadragon from 'openseadragon'
 import { fabric } from 'fabric'
 import { slideApi } from '@/api/slide'
 import { annotationApi } from '@/api/annotation'
+import { reviewApi } from '@/api/review'
+import { useUserStore } from '@/stores/userStore'
 import LabelPanel from '@/components/LabelPanel.vue'
 import ExportDialog from '@/components/ExportDialog.vue'
 
-const route   = useRoute()
-const router  = useRouter()
-const slideId = Number(route.params.id)
+const route      = useRoute()
+const router     = useRouter()
+const slideId    = Number(route.params.id)
+const userStore  = useUserStore()
+const isReviewer = computed(() => userStore.isReviewer)
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const osdEl         = ref(null)
@@ -228,6 +265,7 @@ const currentTool   = ref('pan')
 const isDirty       = ref(false)
 const saving        = ref(false)
 const completing    = ref(false)
+const reviewing     = ref(false)   // reviewer approve/reject loading
 
 // ── Undo / redo ───────────────────────────────────────────────────────────────
 const MAX_HISTORY  = 20
@@ -294,7 +332,9 @@ onMounted(async () => {
   // 2. DZI XML (bypass JSON interceptor)
   let dziParams
   try {
-    const resp = await fetch(`/api/slides/${slideId}/dzi`)
+    const resp = await fetch(`/api/slides/${slideId}/dzi`, {
+      headers: { Authorization: `Bearer ${userStore.token}` }
+    })
     if (!resp.ok) throw new Error(`DZI fetch failed: ${resp.status}`)
     const xml    = new DOMParser().parseFromString(await resp.text(), 'application/xml')
     const imgEl  = xml.querySelector('Image')
@@ -348,6 +388,8 @@ onMounted(async () => {
       visibilityRatio:          0.5,
       defaultZoomLevel:         0,
       gestureSettingsMouse:     { clickToZoom: false },
+      loadTilesWithAjax:        true,
+      ajaxHeaders:              { Authorization: `Bearer ${userStore.token}` },
       tileSources: {
         width:       dziParams.width,
         height:      dziParams.height,
@@ -798,6 +840,9 @@ async function saveAnnotations() {
     annotations.value = saved
     history.value[historyIndex.value] = deepClone(saved)
     isDirty.value = false
+    if (slide.value && slide.value.annoStatus === 'NOT_STARTED' && saved.length > 0) {
+      slide.value.annoStatus = 'IN_PROGRESS'
+    }
     ElMessage.success('标注已保存')
   } catch {
     // Error shown by axios interceptor
@@ -806,15 +851,16 @@ async function saveAnnotations() {
   }
 }
 
-// ── Mark Done ─────────────────────────────────────────────────────────────────
+// ── Submit for review (annotator) ─────────────────────────────────────────────
 async function markDone() {
   if (isDirty.value) {
     await saveAnnotations()
   }
+  const isResubmit = slide.value?.reviewStatus === 'REJECTED'
   try {
     await ElMessageBox.confirm(
-      '确认将该切片标记为已完成？完成后仍可继续编辑标注。',
-      '标记完成',
+      isResubmit ? '确认重新提交该切片进行审核？' : '确认提交该切片进行审核？提交后审核者将收到审核请求。',
+      isResubmit ? '重新提交审核' : '提交审核',
       { type: 'info', confirmButtonText: '确认', cancelButtonText: '取消' }
     )
   } catch { return }
@@ -822,9 +868,49 @@ async function markDone() {
   try {
     await annotationApi.markComplete(slideId)
     slide.value.annoStatus = 'DONE'
-    ElMessage.success('已标记为完成')
+    slide.value.reviewStatus = 'PENDING_REVIEW'
+    ElMessage.success(isResubmit ? '已重新提交，等待审核' : '已提交审核，等待审核者审核')
   } catch { /* handled by interceptor */ } finally {
     completing.value = false
+  }
+}
+
+// ── Approve / Reject (reviewer) ───────────────────────────────────────────────
+async function handleApprove() {
+  try {
+    await ElMessageBox.confirm('确认通过该切片的标注？', '通过审核', {
+      type: 'success', confirmButtonText: '确认通过', cancelButtonText: '取消'
+    })
+  } catch { return }
+  reviewing.value = 'approve'
+  try {
+    await reviewApi.approve(slideId)
+    slide.value.reviewStatus = 'APPROVED'
+    ElMessage.success('已通过审核')
+  } catch { /* handled */ } finally {
+    reviewing.value = false
+  }
+}
+
+async function handleRejectPrompt() {
+  let comment = ''
+  try {
+    const { value } = await ElMessageBox.prompt('请填写拒绝原因：', '拒绝标注', {
+      confirmButtonText: '确认拒绝',
+      cancelButtonText: '取消',
+      inputType: 'textarea',
+      inputValidator: (v) => v?.trim() ? true : '拒绝原因不能为空'
+    })
+    comment = value
+  } catch { return }
+  reviewing.value = 'reject'
+  try {
+    await reviewApi.reject(slideId, comment)
+    slide.value.reviewStatus = 'REJECTED'
+    slide.value.reviewerComment = comment
+    ElMessage.success('已拒绝，标注者将收到反馈')
+  } catch { /* handled */ } finally {
+    reviewing.value = false
   }
 }
 
@@ -1248,5 +1334,15 @@ function normalizeAnno(a) {
   color: #666;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.reject-banner {
+  display: flex;
+  align-items: center;
+  padding: 8px 20px;
+  background: #fef0f0;
+  color: #f56c6c;
+  font-size: 13px;
+  border-bottom: 1px solid #fbc4c4;
 }
 </style>
