@@ -2,6 +2,7 @@ package com.wsi.platform.service;
 
 import com.wsi.platform.entity.ExportTask;
 import com.wsi.platform.entity.Slide;
+import com.wsi.platform.enums.ExportFormat;
 import com.wsi.platform.mapper.ExportTaskMapper;
 import com.wsi.platform.mapper.SlideMapper;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,8 @@ public class ExportService {
      * Create an ExportTask (PENDING) and trigger async processing.
      * Returns immediately; poll via getTask().
      */
-    public ExportTask startExport(Long slideId) {
+    public ExportTask startExport(Long slideId, String format,
+                                   Integer patchSize, String maskType, Integer maskScale) {
         Slide slide = slideMapper.selectById(slideId);
         if (slide == null) throw new IllegalArgumentException("Slide not found: " + slideId);
         if (!"READY".equals(slide.getStatus()))
@@ -35,9 +37,14 @@ public class ExportService {
         if (!"APPROVED".equals(slide.getReviewStatus()))
             throw new IllegalStateException("只有已通过审核（APPROVED）的切片才可以导出");
 
+        ExportFormat fmt = ExportFormat.fromString(format);
         ExportTask task = new ExportTask();
         task.setSlideId(slideId);
+        task.setFormat(fmt.name());
         task.setStatus("PENDING");
+        task.setPatchSize(patchSize != null ? patchSize : 256);
+        task.setMaskType(maskType != null ? maskType : "SEMANTIC");
+        task.setMaskScale(maskScale != null ? maskScale : 1);
         exportTaskMapper.insert(task);
 
         exportAsyncService.doExport(task.getId());
@@ -53,7 +60,8 @@ public class ExportService {
      * Validates each slide before starting; throws if none are eligible.
      * Returns one ExportTask covering all slides.
      */
-    public ExportTask startBatchExport(List<Long> slideIds) {
+    public ExportTask startBatchExport(List<Long> slideIds, String format,
+                                        Integer patchSize, String maskType, Integer maskScale) {
         // Validate — collect eligible slide IDs
         List<Long> eligible = slideIds.stream().filter(slideId -> {
             Slide slide = slideMapper.selectById(slideId);
@@ -75,9 +83,14 @@ public class ExportService {
         if (eligible.isEmpty())
             throw new IllegalStateException("没有符合条件的切片（需为已通过审核状态）");
 
+        ExportFormat fmt = ExportFormat.fromString(format);
         ExportTask task = new ExportTask();
         // slideId is null for batch tasks
+        task.setFormat(fmt.name());
         task.setStatus("PENDING");
+        task.setPatchSize(patchSize != null ? patchSize : 256);
+        task.setMaskType(maskType != null ? maskType : "SEMANTIC");
+        task.setMaskScale(maskScale != null ? maskScale : 1);
         exportTaskMapper.insert(task);
 
         exportAsyncService.doBatchExport(task.getId(), eligible);

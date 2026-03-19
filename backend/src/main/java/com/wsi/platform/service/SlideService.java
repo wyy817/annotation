@@ -117,7 +117,9 @@ public class SlideService {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 if (entry.isDirectory()) { zis.closeEntry(); continue; }
-                String name = Paths.get(entry.getName()).getFileName().toString();
+                String entryPath = entry.getName();
+                if (isArchiveJunk(entryPath)) { zis.closeEntry(); continue; }
+                String name = Paths.get(entryPath).getFileName().toString();
                 if (!isSupportedImage(name)) { zis.closeEntry(); continue; }
 
                 Path dest = uploadDir.resolve(UUID.randomUUID() + "_" + name);
@@ -137,7 +139,9 @@ public class SlideService {
             TarArchiveEntry entry;
             while ((entry = tis.getNextEntry()) != null) {
                 if (entry.isDirectory()) continue;
-                String name = Paths.get(entry.getName()).getFileName().toString();
+                String entryPath = entry.getName();
+                if (isArchiveJunk(entryPath)) continue;
+                String name = Paths.get(entryPath).getFileName().toString();
                 if (!isSupportedImage(name)) continue;
 
                 Path dest = uploadDir.resolve(UUID.randomUUID() + "_" + name);
@@ -174,6 +178,12 @@ public class SlideService {
         slideMapper.insert(slide);
         log.info("Created slide id={} file={} workspace={}", slide.getId(), fileName, workspaceId);
         return slide;
+    }
+
+    /** Skip macOS resource forks (._*) and __MACOSX directories inside archives. */
+    private boolean isArchiveJunk(String entryPath) {
+        String fileName = Paths.get(entryPath).getFileName().toString();
+        return fileName.startsWith("._") || entryPath.contains("__MACOSX");
     }
 
     private boolean isSupportedImage(String name) {

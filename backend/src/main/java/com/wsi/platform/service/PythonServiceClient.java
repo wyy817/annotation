@@ -48,6 +48,8 @@ public class PythonServiceClient {
         private int width;
         private int height;
         private List<Map<String, Object>> annotations;
+        @JsonProperty("mask_type")  private String maskType;   // SEMANTIC | COLOR | INSTANCE
+        @JsonProperty("mask_scale") private int maskScale;     // downsample factor (1/2/4/8)
     }
 
     @Data
@@ -86,14 +88,17 @@ public class PythonServiceClient {
 
     /** Render vector annotations into a semantic mask PNG. Blocking. */
     public GenerateMaskResponse generateMask(long slideId, int width, int height,
-                                             List<Map<String, Object>> annotations) {
+                                             List<Map<String, Object>> annotations,
+                                             String maskType, int maskScale) {
         String url = props.getPythonService().getBaseUrl() + "/internal/generate-mask";
         GenerateMaskRequest req = new GenerateMaskRequest();
         req.setSlideId(slideId);
         req.setWidth(width);
         req.setHeight(height);
         req.setAnnotations(annotations);
-        log.info("POST {} slideId={} annCount={}", url, slideId, annotations.size());
+        req.setMaskType(maskType != null ? maskType : "SEMANTIC");
+        req.setMaskScale(maskScale > 0 ? maskScale : 1);
+        log.info("POST {} slideId={} annCount={} maskType={} maskScale={}", url, slideId, annotations.size(), maskType, maskScale);
         return restTemplate.postForObject(url, req, GenerateMaskResponse.class);
     }
 

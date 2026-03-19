@@ -7,11 +7,9 @@ import com.wsi.platform.entity.User;
 import com.wsi.platform.mapper.SlideMapper;
 import com.wsi.platform.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -39,17 +37,29 @@ public class UserController {
             long rejected    = slides.stream().filter(s -> "REJECTED".equals(s.getReviewStatus())).count();
             long inProgress  = slides.stream().filter(s -> "NOT_SUBMITTED".equals(s.getReviewStatus())).count();
 
-            return Map.<String, Object>of(
-                    "id", u.getId(),
-                    "username", u.getUsername(),
-                    "total", total,
-                    "inProgress", inProgress,
-                    "pendingReview", pending,
-                    "approved", approved,
-                    "rejected", rejected
-            );
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", u.getId());
+            map.put("username", u.getUsername());
+            map.put("total", total);
+            map.put("inProgress", inProgress);
+            map.put("pendingReview", pending);
+            map.put("approved", approved);
+            map.put("rejected", rejected);
+            map.put("remark", u.getRemark());
+            return map;
         }).collect(Collectors.toList());
 
         return Result.success(result);
+    }
+
+    @PutMapping("/api/users/{id}/remark")
+    public Result<Void> updateRemark(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        User user = userService.findById(id);
+        if (user == null) {
+            return Result.error("用户不存在");
+        }
+        user.setRemark(body.get("remark"));
+        userService.updateRemark(user);
+        return Result.success(null);
     }
 }

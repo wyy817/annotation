@@ -32,6 +32,10 @@ public class UserService {
                         .orderByAsc(User::getUsername));
     }
 
+    public void updateRemark(User user) {
+        userMapper.updateById(user);
+    }
+
     /**
      * Verify password and return user if credentials match, null otherwise.
      */

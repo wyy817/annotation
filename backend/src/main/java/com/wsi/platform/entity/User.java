@@ -21,6 +21,8 @@ public class User {
     /** ANNOTATOR | REVIEWER */
     private String role;
 
+    private String remark;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

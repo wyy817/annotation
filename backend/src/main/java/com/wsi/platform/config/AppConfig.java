@@ -11,6 +11,9 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 @Configuration
 @EnableAsync
 @EnableConfigurationProperties(StorageProperties.class)
@@ -35,6 +38,13 @@ public class AppConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor).addPathPatterns("/api/**");
+    }
+
+    /** Thread pool for parallel mask generation during batch export. */
+    @Bean(name = "maskGenerationExecutor")
+    public ExecutorService maskGenerationExecutor() {
+        // Use at most 4 threads to avoid overwhelming the Python service
+        return Executors.newFixedThreadPool(4);
     }
 
     /** Allow the Vue dev server (port 5173) to call the backend during development. */

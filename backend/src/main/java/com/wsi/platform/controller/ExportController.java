@@ -26,9 +26,13 @@ public class ExportController {
     private final ExportService exportService;
 
     @PostMapping("/api/slides/{slideId}/export")
-    public Result<ExportTask> startExport(@PathVariable Long slideId) {
+    public Result<ExportTask> startExport(@PathVariable Long slideId,
+                                          @RequestParam(defaultValue = "COCO") String format,
+                                          @RequestParam(defaultValue = "256") Integer patchSize,
+                                          @RequestParam(defaultValue = "SEMANTIC") String maskType,
+                                          @RequestParam(defaultValue = "1") Integer maskScale) {
         try {
-            return Result.success(exportService.startExport(slideId));
+            return Result.success(exportService.startExport(slideId, format, patchSize, maskType, maskScale));
         } catch (IllegalArgumentException e) {
             return Result.error(404, e.getMessage());
         } catch (IllegalStateException e) {
@@ -39,6 +43,10 @@ public class ExportController {
     @lombok.Data
     static class BatchExportRequest {
         private List<Long> slideIds;
+        private String format;
+        private Integer patchSize;
+        private String maskType;
+        private Integer maskScale;
     }
 
     @PostMapping("/api/export/batch")
@@ -46,7 +54,11 @@ public class ExportController {
         if (req.getSlideIds() == null || req.getSlideIds().isEmpty())
             return Result.error(400, "slideIds 不能为空");
         try {
-            return Result.success(exportService.startBatchExport(req.getSlideIds()));
+            String format = req.getFormat() != null ? req.getFormat() : "COCO";
+            Integer patchSize = req.getPatchSize() != null ? req.getPatchSize() : 256;
+            String maskType = req.getMaskType() != null ? req.getMaskType() : "SEMANTIC";
+            Integer maskScale = req.getMaskScale() != null ? req.getMaskScale() : 1;
+            return Result.success(exportService.startBatchExport(req.getSlideIds(), format, patchSize, maskType, maskScale));
         } catch (IllegalStateException e) {
             return Result.error(409, e.getMessage());
         }
