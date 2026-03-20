@@ -88,6 +88,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Spring WebSocket + STOMP -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- Spring Security Crypto (BCryptPasswordEncoder, no full Security stack) -->
         <dependency>
             <groupId>org.springframework.security</groupId>

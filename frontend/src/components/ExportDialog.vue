@@ -2,17 +2,52 @@
   <el-dialog
     v-model="visible"
     title="导出数据集"
-    width="440px"
+    width="480px"
     :close-on-click-modal="false"
     @closed="onClosed"
   >
     <!-- Idle: not yet started -->
     <div v-if="phase === 'idle'" class="export-body">
       <el-icon class="export-icon"><Download /></el-icon>
-      <p class="export-desc">
-        将生成包含以下内容的 ZIP 文件：<br />
-        缩略图 · 语义掩码 · Patches · COCO JSON · 统计报告
-      </p>
+
+      <!-- Format selector -->
+      <div class="format-section">
+        <p class="format-label">选择导出格式：</p>
+        <el-radio-group v-model="selectedFormat" size="default">
+          <el-radio-button v-for="f in formats" :key="f.value" :value="f.value">
+            {{ f.label }}
+          </el-radio-button>
+        </el-radio-group>
+        <p class="format-hint">{{ formatHint }}</p>
+      </div>
+
+      <!-- Patch size selector (PATCHES only) -->
+      <div v-if="selectedFormat === 'PATCHES'" class="option-section">
+        <p class="format-label">Patch 尺寸：</p>
+        <el-radio-group v-model="patchSize" size="small">
+          <el-radio-button :value="128">128×128</el-radio-button>
+          <el-radio-button :value="256">256×256</el-radio-button>
+          <el-radio-button :value="512">512×512</el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <!-- Mask options (MASK_ONLY only) -->
+      <div v-if="selectedFormat === 'MASK_ONLY'" class="option-section">
+        <p class="format-label">掩码类型：</p>
+        <el-radio-group v-model="maskType" size="small">
+          <el-radio-button value="SEMANTIC">语义掩码</el-radio-button>
+          <el-radio-button value="COLOR">彩色 RGB</el-radio-button>
+          <el-radio-button value="INSTANCE">实例掩码</el-radio-button>
+        </el-radio-group>
+        <p class="format-label" style="margin-top: 8px">降采样倍率：</p>
+        <el-radio-group v-model="maskScale" size="small">
+          <el-radio-button :value="1">1× (原始)</el-radio-button>
+          <el-radio-button :value="2">2×</el-radio-button>
+          <el-radio-button :value="4">4×</el-radio-button>
+          <el-radio-button :value="8">8×</el-radio-button>
+        </el-radio-group>
+      </div>
+
       <el-button type="primary" :loading="starting" @click="start">开始导出</el-button>
     </div>
 
@@ -58,7 +93,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Download, Loading, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import { exportApi } from '@/api/export'
 
@@ -73,6 +108,30 @@ const phase    = ref('idle')   // idle | running | done | error
 const starting = ref(false)
 const task     = ref(null)
 const errorMsg = ref('')
+const selectedFormat = ref('COCO')
+const patchSize = ref(256)
+const maskType = ref('SEMANTIC')
+const maskScale = ref(1)
+
+const formats = [
+  { value: 'COCO',      label: 'COCO' },
+  { value: 'YOLO',      label: 'YOLO' },
+  { value: 'VOC',       label: 'VOC' },
+  { value: 'GEOJSON',   label: 'GeoJSON' },
+  { value: 'MASK_ONLY', label: '仅 Mask' },
+  { value: 'PATCHES',   label: 'Patches' }
+]
+
+const formatDescriptions = {
+  COCO:      '标准 COCO 格式：instances.json + 语义掩码 + 缩略图',
+  YOLO:      'YOLO 检测/分割格式：images/ + labels/ + data.yaml',
+  VOC:       'Pascal VOC XML 格式：每张图对应一个 XML 标注文件（bndbox 边界框）',
+  GEOJSON:   'GeoJSON 矢量格式：FeatureCollection + Polygon/Point 几何体',
+  MASK_ONLY: '语义/彩色/实例掩码 PNG，支持降采样',
+  PATCHES:   '按标注区域裁切小图，按标签分类存储 + labels.csv'
+}
+
+const formatHint = computed(() => formatDescriptions[selectedFormat.value] || '')
 
 let pollTimer = null
 
@@ -83,7 +142,12 @@ watch(visible, v => { emit('update:modelValue', v) })
 async function start() {
   starting.value = true
   try {
-    const res = await exportApi.startExport(props.slideId)
+    const res = await exportApi.startExport(props.slideId, {
+      format: selectedFormat.value,
+      patchSize: patchSize.value,
+      maskType: maskType.value,
+      maskScale: maskScale.value
+    })
     task.value = res.data
     phase.value = 'running'
     startPolling()
@@ -177,11 +241,34 @@ function onClosed() {
   to   { transform: rotate(360deg); }
 }
 
-.export-desc {
-  color: #606266;
+.format-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.format-label {
   font-size: 14px;
-  line-height: 1.7;
+  color: #303133;
+  font-weight: 500;
   margin: 0;
+}
+
+.format-hint {
+  font-size: 12px;
+  color: #909399;
+  margin: 0;
+  min-height: 18px;
+}
+
+.option-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
 
 .export-status-text {

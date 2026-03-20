@@ -1,5 +1,9 @@
 <template>
-  <div class="ws-card" @click="$emit('open', workspace)">
+  <div class="ws-card" :class="{ 'is-selected': selected }" @click="$emit('open', workspace)">
+    <!-- Checkbox -->
+    <div v-if="selectable" class="card-checkbox" @click.stop>
+      <el-checkbox :model-value="selected" @change="$emit('toggle-select', workspace)" />
+    </div>
     <!-- Icon area -->
     <div class="card-icon">
       <el-icon :size="36" color="#409eff"><FolderOpened /></el-icon>
@@ -37,10 +41,12 @@
 import { MoreFilled, Edit, Delete, FolderOpened } from '@element-plus/icons-vue'
 
 const props = defineProps({
-  workspace: { type: Object, required: true }
+  workspace: { type: Object, required: true },
+  selectable: { type: Boolean, default: false },
+  selected: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['open', 'rename', 'delete'])
+const emit = defineEmits(['open', 'rename', 'delete', 'toggle-select'])
 
 function handleCommand(cmd) {
   if (cmd === 'rename') emit('rename', props.workspace)
@@ -105,6 +111,17 @@ function formatDate(dateStr) {
 .card-meta {
   font-size: 12px;
   color: #c0c4cc;
+}
+
+.card-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+}
+.ws-card.is-selected {
+  outline: 2px solid #409eff;
+  background: #ecf5ff;
 }
 
 .card-actions {

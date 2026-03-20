@@ -36,7 +36,16 @@ import java.util.zip.ZipInputStream;
 @RequiredArgsConstructor
 public class SlideService {
 
-    private static final Set<String> SUPPORTED_EXT = Set.of(".png", ".jpg", ".jpeg", ".svs");
+    private static final Set<String> SUPPORTED_EXT = Set.of(
+            ".png", ".jpg", ".jpeg",           // standard images
+            ".svs",                             // Aperio SVS
+            ".ndpi",                            // Hamamatsu NDPI
+            ".tiff", ".tif",                    // Generic TIFF / Aperio TIFF / Leica
+            ".mrxs",                            // 3DHISTECH MRXS
+            ".scn",                             // Leica SCN
+            ".bif",                             // Ventana BIF
+            ".vms", ".vmu"                      // Hamamatsu VMS/VMU
+    );
 
     private final SlideMapper slideMapper;
     private final WorkspaceMapper workspaceMapper;

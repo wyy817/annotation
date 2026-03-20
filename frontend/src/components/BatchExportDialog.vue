@@ -11,9 +11,45 @@
       <p class="batch-desc">
         以下 <strong>{{ slides.length }}</strong> 个已通过审核的切片将合并导出为一个 ZIP 文件：
       </p>
-      <p class="batch-desc hint">
-        ZIP 结构：<code>image/</code>（缩略图）、<code>mask/</code>（语义掩码）、<code>annotations.json</code>
-      </p>
+
+      <!-- Format selector -->
+      <div class="format-section">
+        <p class="format-label">选择导出格式：</p>
+        <el-radio-group v-model="selectedFormat" size="default">
+          <el-radio-button v-for="f in formats" :key="f.value" :value="f.value">
+            {{ f.label }}
+          </el-radio-button>
+        </el-radio-group>
+        <p class="format-hint">{{ formatHint }}</p>
+      </div>
+
+      <!-- Patch size selector (PATCHES only) -->
+      <div v-if="selectedFormat === 'PATCHES'" class="option-section">
+        <p class="format-label">Patch 尺寸：</p>
+        <el-radio-group v-model="patchSize" size="small">
+          <el-radio-button :value="128">128×128</el-radio-button>
+          <el-radio-button :value="256">256×256</el-radio-button>
+          <el-radio-button :value="512">512×512</el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <!-- Mask options (MASK_ONLY only) -->
+      <div v-if="selectedFormat === 'MASK_ONLY'" class="option-section">
+        <p class="format-label">掩码类型：</p>
+        <el-radio-group v-model="maskType" size="small">
+          <el-radio-button value="SEMANTIC">语义掩码</el-radio-button>
+          <el-radio-button value="COLOR">彩色 RGB</el-radio-button>
+          <el-radio-button value="INSTANCE">实例掩码</el-radio-button>
+        </el-radio-group>
+        <p class="format-label" style="margin-top: 8px">降采样倍率：</p>
+        <el-radio-group v-model="maskScale" size="small">
+          <el-radio-button :value="1">1× (原始)</el-radio-button>
+          <el-radio-button :value="2">2×</el-radio-button>
+          <el-radio-button :value="4">4×</el-radio-button>
+          <el-radio-button :value="8">8×</el-radio-button>
+        </el-radio-group>
+      </div>
+
       <el-scrollbar max-height="220px">
         <div v-for="s in slides" :key="s.id" class="slide-row">
           <el-icon style="color:#909399; flex-shrink:0"><Document /></el-icon>
@@ -36,7 +72,7 @@
         :duration="8"
         style="width:300px; margin-top:8px"
       />
-      <p class="hint-text">包含 {{ slides.length }} 个切片的 image/ 和 mask/</p>
+      <p class="hint-text">包含 {{ slides.length }} 个切片，格式：{{ selectedFormat }}</p>
     </div>
 
     <!-- Done -->
@@ -80,6 +116,30 @@ const phase    = ref('confirm')   // confirm | running | done | error
 const starting = ref(false)
 const task     = ref(null)
 const errorMsg = ref('')
+const selectedFormat = ref('COCO')
+const patchSize = ref(256)
+const maskType = ref('SEMANTIC')
+const maskScale = ref(1)
+
+const formats = [
+  { value: 'COCO',      label: 'COCO' },
+  { value: 'YOLO',      label: 'YOLO' },
+  { value: 'VOC',       label: 'VOC' },
+  { value: 'GEOJSON',   label: 'GeoJSON' },
+  { value: 'MASK_ONLY', label: '仅 Mask' },
+  { value: 'PATCHES',   label: 'Patches' }
+]
+
+const formatDescriptions = {
+  COCO:      '标准 COCO 格式：instances.json + 语义掩码 + 缩略图',
+  YOLO:      'YOLO 检测/分割格式：images/ + labels/ + data.yaml',
+  VOC:       'Pascal VOC XML 格式：每张图对应一个 XML 标注文件（bndbox 边界框）',
+  GEOJSON:   'GeoJSON 矢量格式：FeatureCollection + Polygon/Point 几何体',
+  MASK_ONLY: '语义/彩色/实例掩码 PNG，支持降采样',
+  PATCHES:   '按标注区域裁切小图，按标签分类存储 + labels.csv'
+}
+
+const formatHint = computed(() => formatDescriptions[selectedFormat.value] || '')
 
 let pollTimer = null
 
@@ -97,7 +157,15 @@ const progressPct = computed(() => {
 async function start() {
   starting.value = true
   try {
-    const res = await exportApi.startBatchExport(props.slides.map(s => s.id))
+    const res = await exportApi.startBatchExport(
+      props.slides.map(s => s.id),
+      {
+        format: selectedFormat.value,
+        patchSize: patchSize.value,
+        maskType: maskType.value,
+        maskScale: maskScale.value
+      }
+    )
     task.value = res.data
     phase.value = 'running'
     startPolling()
@@ -184,16 +252,34 @@ function onClosed() {
   gap: 6px;
 }
 
-.batch-desc.hint {
-  font-size: 12px;
-  color: #909399;
+.format-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0 8px;
 }
 
-.batch-desc.hint code {
-  background: #f5f7fa;
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: monospace;
+.format-label {
+  font-size: 13px;
+  color: #303133;
+  font-weight: 500;
+  margin: 0;
+}
+
+.format-hint {
+  font-size: 12px;
+  color: #909399;
+  margin: 0;
+  min-height: 18px;
+}
+
+.option-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 8px;
 }
 
 .hint-text {

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- 目镜 -->
+  <rect x="26" y="2" width="12" height="8" rx="2" fill="#2563eb"/>
+  <!-- 镜筒 -->
+  <rect x="29" y="10" width="6" height="18" rx="1" fill="#3b82f6"/>
+  <!-- 物镜 -->
+  <rect x="27" y="28" width="10" height="5" rx="1.5" fill="#1d4ed8"/>
+  <!-- 载物台 -->
+  <rect x="16" y="36" width="32" height="4" rx="1" fill="#1e40af"/>
+  <!-- 切片（载物台上的玻片） -->
+  <rect x="24" y="33" width="16" height="3" rx="0.5" fill="#93c5fd" opacity="0.8"/>
+  <!-- 镜臂 -->
+  <path d="M35 18 Q44 18 44 28 L44 40" stroke="#1e3a5f" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- 底座 -->
+  <path d="M14 56 Q14 48 24 48 L40 48 Q50 48 50 56 Z" fill="#1e3a5f"/>
+  <!-- 底座底部 -->
+  <rect x="10" y="56" width="44" height="5" rx="2.5" fill="#0f172a"/>
+  <!-- 调焦旋钮 -->
+  <circle cx="46" cy="34" r="3" fill="#64748b"/>
+</svg>

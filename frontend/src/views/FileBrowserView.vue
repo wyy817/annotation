@@ -7,7 +7,10 @@
         <el-divider direction="vertical" />
         <span class="ws-name">{{ workspace?.name ?? '...' }}</span>
       </div>
-      <el-button type="primary" :icon="Upload" @click="showUpload = true">上传图像</el-button>
+      <div class="header-right">
+        <NotificationBell />
+        <el-button type="primary" :icon="Upload" @click="showUpload = true">上传图像</el-button>
+      </div>
     </header>
 
     <!-- Toolbar -->
@@ -44,6 +47,12 @@
 
       <div style="flex:1" />
 
+      <!-- Selection mode toggle -->
+      <el-button
+        :type="selectionMode ? 'warning' : ''"
+        @click="toggleSelectionMode"
+      >{{ selectionMode ? '退出选择' : '批量选择' }}</el-button>
+
       <!-- Batch export -->
       <el-tooltip content="导出所有已通过审核的切片" placement="bottom">
         <el-button
@@ -68,6 +77,28 @@
       </el-button-group>
     </div>
 
+    <!-- Batch action bar -->
+    <div v-if="selectionMode" class="batch-bar">
+      <el-checkbox
+        :model-value="isAllSelected"
+        :indeterminate="isIndeterminate"
+        @change="toggleSelectAll"
+      >全选</el-checkbox>
+      <span class="batch-info">已选 {{ selectedIds.size }} 项</span>
+      <el-button
+        type="primary"
+        :icon="Download"
+        :disabled="!selectedIds.size"
+        @click="handleBatchExportSelected"
+      >下载</el-button>
+      <el-button
+        type="danger"
+        :icon="DeleteIcon"
+        :disabled="!selectedIds.size"
+        @click="handleBatchDeleteClick"
+      >删除</el-button>
+    </div>
+
     <!-- Loading -->
     <div v-if="store.loading" class="grid-wrap">
       <el-skeleton v-for="n in 6" :key="n" class="skel" :rows="3" animated />
@@ -87,15 +118,19 @@
         :key="s.id"
         :slide="s"
         view-mode="grid"
+        :selectable="selectionMode"
+        :selected="selectedIds.has(s.id)"
         @open="handleOpen"
         @move="handleMoveClick"
         @delete="handleDeleteClick"
+        @toggle-select="toggleSelect"
       />
     </div>
 
     <!-- List -->
     <div v-else class="list-wrap">
-      <div class="list-header">
+      <div class="list-header" :class="{ 'has-checkbox': selectionMode }">
+        <div v-if="selectionMode" style="width:32px"></div>
         <div style="width:56px"></div>
         <div style="flex:1">文件名</div>
         <div style="width:60px">格式</div>
@@ -110,9 +145,12 @@
         :key="s.id"
         :slide="s"
         view-mode="list"
+        :selectable="selectionMode"
+        :selected="selectedIds.has(s.id)"
         @open="handleOpen"
         @move="handleMoveClick"
         @delete="handleDeleteClick"
+        @toggle-select="toggleSelect"
       />
     </div>
 
@@ -131,7 +169,19 @@
     />
 
     <!-- Batch export dialog -->
-    <BatchExportDialog v-model="showBatchExport" :slides="approvedSlides" />
+    <BatchExportDialog v-model="showBatchExport" :slides="batchExportSlides" />
+
+    <!-- Batch delete confirm -->
+    <el-dialog v-model="showBatchDelete" title="批量删除" width="420px">
+      <p>
+        确定要删除选中的 <strong>{{ selectedIds.size }}</strong> 个文件吗？<br />
+        <span class="warn-text">标注数据将同步删除，不可恢复。</span>
+      </p>
+      <template #footer>
+        <el-button @click="showBatchDelete = false">取消</el-button>
+        <el-button type="danger" :loading="batchDeleting" @click="confirmBatchDelete">确认删除</el-button>
+      </template>
+    </el-dialog>
 
     <!-- Delete confirm -->
     <el-dialog v-model="showDelete" title="删除图像" width="400px">
@@ -153,7 +203,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Upload, Search, Grid, List, Download } from '@element-plus/icons-vue'
+import { ArrowLeft, Upload, Search, Grid, List, Download, Delete as DeleteIcon } from '@element-plus/icons-vue'
 
 import { useSlideStore } from '@/stores/slideStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -162,6 +212,7 @@ import SlideCard from '@/components/SlideCard.vue'
 import UploadDialog from '@/components/UploadDialog.vue'
 import MoveSlideDialog from '@/components/MoveSlideDialog.vue'
 import BatchExportDialog from '@/components/BatchExportDialog.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -187,11 +238,75 @@ const showDelete = ref(false)
 const deleteTarget = ref(null)
 const deleting = ref(false)
 const showBatchExport = ref(false)
+const showBatchDelete = ref(false)
+const batchDeleting = ref(false)
+
+// ── selection state ──────────────────────────────────────────────────────
+const selectionMode = ref(false)
+const selectedIds = ref(new Set())
+
+const isAllSelected = computed(() =>
+  filteredSlides.value.length > 0 && selectedIds.value.size === filteredSlides.value.length
+)
+const isIndeterminate = computed(() =>
+  selectedIds.value.size > 0 && selectedIds.value.size < filteredSlides.value.length
+)
+
+function toggleSelectionMode() {
+  selectionMode.value = !selectionMode.value
+  selectedIds.value = new Set()
+}
+
+function toggleSelect(slide) {
+  const s = new Set(selectedIds.value)
+  if (s.has(slide.id)) s.delete(slide.id)
+  else s.add(slide.id)
+  selectedIds.value = s
+}
+
+function toggleSelectAll(val) {
+  if (val) {
+    selectedIds.value = new Set(filteredSlides.value.map(s => s.id))
+  } else {
+    selectedIds.value = new Set()
+  }
+}
+
+function handleBatchExportSelected() {
+  // Use selected slides for batch export
+  showBatchExport.value = true
+}
+
+function handleBatchDeleteClick() {
+  showBatchDelete.value = true
+}
+
+async function confirmBatchDelete() {
+  batchDeleting.value = true
+  try {
+    const ids = [...selectedIds.value]
+    for (const id of ids) {
+      await store.remove(id)
+    }
+    ElMessage.success(`已删除 ${ids.length} 个文件`)
+    selectedIds.value = new Set()
+    showBatchDelete.value = false
+  } finally {
+    batchDeleting.value = false
+  }
+}
 
 // ── computed ──────────────────────────────────────────────────────────────
 const approvedSlides = computed(() =>
   store.slides.filter(s => s.reviewStatus === 'APPROVED' && s.status === 'READY')
 )
+
+const batchExportSlides = computed(() => {
+  if (selectionMode.value && selectedIds.value.size > 0) {
+    return store.slides.filter(s => selectedIds.value.has(s.id) && s.status === 'READY' && s.reviewStatus === 'APPROVED')
+  }
+  return approvedSlides.value
+})
 
 const filteredSlides = computed(() => {
   let list = [...store.slides]
@@ -301,6 +416,20 @@ async function confirmDelete() {
   border-bottom: 1px solid #ebeef5;
 }
 
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 32px;
+  background: #ecf5ff;
+  border-bottom: 1px solid #d9ecff;
+}
+.batch-info {
+  font-size: 13px;
+  color: #409eff;
+  font-weight: 500;
+}
+
 .grid-wrap {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -324,7 +453,7 @@ async function confirmDelete() {
 
 .list-header {
   display: grid;
-  grid-template-columns: 56px 1fr 60px 80px 90px 90px 40px;
+  grid-template-columns: 56px 1fr 60px 80px 90px 90px 90px 40px;
   align-items: center;
   gap: 12px;
   padding: 8px 16px;
@@ -333,6 +462,9 @@ async function confirmDelete() {
   font-size: 12px;
   color: #909399;
   font-weight: 600;
+}
+.list-header.has-checkbox {
+  grid-template-columns: 32px 56px 1fr 60px 80px 90px 90px 90px 40px;
 }
 
 .empty-state {

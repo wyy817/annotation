@@ -12,12 +12,13 @@
           <el-tag type="warning" size="small">审核者</el-tag>
           {{ userStore.user?.username }}
         </span>
+        <NotificationBell />
         <el-button size="small" @click="handleLogout">退出登录</el-button>
       </div>
     </header>
 
     <!-- Stats tabs -->
-    <el-tabs v-model="activeTab" class="main-tabs">
+    <el-tabs v-model="activeTab" class="main-tabs" @tab-change="onTabChange">
       <!-- Pending Review Queue -->
       <el-tab-pane label="待审核队列" name="pending">
         <div class="toolbar">
@@ -100,6 +101,75 @@
         </div>
       </el-tab-pane>
 
+      <!-- Audit Log -->
+      <el-tab-pane label="审核日志" name="auditLog">
+        <div class="toolbar" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          <el-select v-model="auditFilter.action" placeholder="操作类型" clearable style="width:140px" @change="loadAuditLogs(true)">
+            <el-option label="保存标注" value="SAVE" />
+            <el-option label="提交审核" value="SUBMIT" />
+            <el-option label="重新提交" value="RESUBMIT" />
+            <el-option label="审核通过" value="APPROVE" />
+            <el-option label="审核拒绝" value="REJECT" />
+            <el-option label="导入标注" value="IMPORT" />
+          </el-select>
+          <el-date-picker
+            v-model="auditFilter.dateRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width:360px"
+            @change="loadAuditLogs(true)"
+          />
+          <el-button :icon="Refresh" @click="loadAuditLogs(true)">刷新</el-button>
+        </div>
+
+        <el-table
+          :data="auditLogs"
+          v-loading="auditLoading"
+          border
+          style="width:100%;margin-top:4px"
+        >
+          <el-table-column prop="createdAt" label="时间" width="170">
+            <template #default="{ row }">
+              {{ formatAuditTime(row.createdAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="username" label="操作者" width="120" />
+          <el-table-column prop="action" label="操作" width="110">
+            <template #default="{ row }">
+              <el-tag :type="auditActionType[row.action] || ''" size="small" effect="plain">
+                {{ auditActionLabel[row.action] ?? row.action }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="slideId" label="切片 ID" width="90" align="center" />
+          <el-table-column label="详情" min-width="200">
+            <template #default="{ row }">
+              <span class="audit-detail">{{ formatAuditDetail(row.detail) }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div style="margin-top:16px;display:flex;justify-content:flex-end">
+          <el-pagination
+            v-model:current-page="auditCurrentPage"
+            v-model:page-size="auditPageSize"
+            :total="auditTotal"
+            :page-sizes="[20, 50, 100]"
+            layout="total, sizes, prev, pager, next"
+            @size-change="loadAuditLogs(true)"
+            @current-change="loadAuditLogs(false)"
+          />
+        </div>
+      </el-tab-pane>
+
+      <!-- Annotation Statistics -->
+      <el-tab-pane label="标注统计" name="statistics">
+        <AnnotationStatsPanel v-if="activeTab === 'statistics'" />
+      </el-tab-pane>
+
       <!-- Annotator Progress -->
       <el-tab-pane label="标注者进度" name="progress">
         <div class="toolbar">
@@ -137,6 +207,16 @@
                 :stroke-width="10"
               />
               <span v-else style="color:#c0c4cc">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="备注" min-width="160">
+            <template #default="{ row }">
+              <el-input
+                v-model="row.remark"
+                size="small"
+                placeholder="添加备注..."
+                @change="saveRemark(row)"
+              />
             </template>
           </el-table-column>
         </el-table>
@@ -180,15 +260,22 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Refresh, Download } from '@element-plus/icons-vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 import { reviewApi } from '@/api/review'
+import { auditLogApi } from '@/api/auditLog'
 import { useUserStore } from '@/stores/userStore'
 import ExportDialog from '@/components/ExportDialog.vue'
 import BatchExportDialog from '@/components/BatchExportDialog.vue'
+import AnnotationStatsPanel from '@/components/AnnotationStatsPanel.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const activeTab  = ref('pending')
+
+function onTabChange(tab) {
+  if (tab === 'auditLog' && auditLogs.value.length === 0) loadAuditLogs(true)
+}
 const pending    = ref([])
 const approved   = ref([])
 const annotators = ref([])
@@ -228,6 +315,14 @@ function openSingleExport(slide) {
 async function loadAnnotators() {
   const res = await reviewApi.getAnnotators()
   annotators.value = res.data
+}
+
+async function saveRemark(row) {
+  try {
+    await reviewApi.updateAnnotatorRemark(row.id, row.remark || '')
+  } catch {
+    ElMessage.error('备注保存失败')
+  }
 }
 
 function annotatorName(id) {
@@ -271,6 +366,65 @@ async function confirmReject() {
 function handleLogout() {
   userStore.logout()
   router.replace({ name: 'login' })
+}
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+const auditLogs        = ref([])
+const auditLoading     = ref(false)
+const auditTotal       = ref(0)
+const auditCurrentPage = ref(1)
+const auditPageSize    = ref(20)
+const auditFilter      = ref({ action: '', dateRange: null })
+
+const auditActionLabel = {
+  SAVE:     '保存标注',
+  SUBMIT:   '提交审核',
+  RESUBMIT: '重新提交',
+  APPROVE:  '审核通过',
+  REJECT:   '审核拒绝',
+  IMPORT:   '导入标注'
+}
+const auditActionType = {
+  SAVE:     '',
+  SUBMIT:   'primary',
+  RESUBMIT: 'warning',
+  APPROVE:  'success',
+  REJECT:   'danger',
+  IMPORT:   'info'
+}
+
+function formatAuditTime(dt) {
+  if (!dt) return ''
+  return dt.replace('T', ' ').substring(0, 19)
+}
+
+function formatAuditDetail(detail) {
+  if (!detail) return ''
+  try {
+    const obj = typeof detail === 'string' ? JSON.parse(detail) : detail
+    return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join('  |  ')
+  } catch {
+    return detail
+  }
+}
+
+async function loadAuditLogs(resetPage = true) {
+  if (resetPage) auditCurrentPage.value = 1
+  auditLoading.value = true
+  try {
+    const params = {
+      page: auditCurrentPage.value - 1,
+      size: auditPageSize.value
+    }
+    if (auditFilter.value.action) params.action = auditFilter.value.action
+    if (auditFilter.value.dateRange?.[0]) params.from = auditFilter.value.dateRange[0]
+    if (auditFilter.value.dateRange?.[1]) params.to   = auditFilter.value.dateRange[1]
+    const res = await auditLogApi.list(params)
+    auditLogs.value  = res.data.records ?? []
+    auditTotal.value = res.data.total ?? 0
+  } finally {
+    auditLoading.value = false
+  }
 }
 </script>
 
@@ -389,5 +543,10 @@ function handleLogout() {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.audit-detail {
+  font-size: 12px;
+  color: #606266;
 }
 </style>

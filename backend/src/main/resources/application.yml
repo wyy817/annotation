@@ -29,4 +29,4 @@ wsi:
     tile-dir: ./data/tiles
     export-dir: ./data/exports
   python-service:
-    base-url: http://localhost:8001
+    base-url: http://localhost:8000

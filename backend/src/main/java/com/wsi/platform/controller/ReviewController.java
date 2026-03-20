@@ -5,8 +5,12 @@ import com.wsi.platform.common.Result;
 import com.wsi.platform.entity.Slide;
 import com.wsi.platform.mapper.SlideMapper;
 import com.wsi.platform.security.UserContext;
+import com.wsi.platform.service.AnnotationVersionService;
+import com.wsi.platform.service.AuditLogService;
+import com.wsi.platform.websocket.NotificationPayload;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -23,6 +27,9 @@ import java.util.List;
 public class ReviewController {
 
     private final SlideMapper slideMapper;
+    private final AnnotationVersionService annotationVersionService;
+    private final AuditLogService auditLogService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @GetMapping("/api/reviews/approved")
     public Result<List<Slide>> approved() {
@@ -55,6 +62,22 @@ public class ReviewController {
         slide.setReviewerComment(null);
         slide.setReviewedAt(LocalDateTime.now());
         slideMapper.updateById(slide);
+        annotationVersionService.createVersion(slideId, reviewer.id(), "APPROVE", null);
+        auditLogService.log("APPROVE", slideId, null);
+
+        // Notify the annotator point-to-point
+        if (slide.getAnnotatorId() != null) {
+            messagingTemplate.convertAndSendToUser(
+                    slide.getAnnotatorId().toString(),
+                    "/queue/notifications",
+                    new NotificationPayload(
+                            "APPROVED",
+                            slideId,
+                            slide.getFileName(),
+                            "切片 \"" + slide.getFileName() + "\" 已审核通过",
+                            java.time.LocalDateTime.now()
+                    ));
+        }
         return Result.success(null);
     }
 
@@ -79,6 +102,24 @@ public class ReviewController {
         // Reset annoStatus so annotator can re-edit
         slide.setAnnoStatus("IN_PROGRESS");
         slideMapper.updateById(slide);
+        annotationVersionService.createVersion(slideId, reviewer.id(), "REJECT", req.getComment());
+        auditLogService.log("REJECT", slideId,
+                req.getComment() != null ? java.util.Map.of("comment", req.getComment()) : null);
+
+        // Notify the annotator point-to-point
+        if (slide.getAnnotatorId() != null) {
+            String reason = req.getComment() != null ? req.getComment() : "";
+            messagingTemplate.convertAndSendToUser(
+                    slide.getAnnotatorId().toString(),
+                    "/queue/notifications",
+                    new NotificationPayload(
+                            "REJECTED",
+                            slideId,
+                            slide.getFileName(),
+                            "切片 \"" + slide.getFileName() + "\" 被拒绝：" + reason,
+                            java.time.LocalDateTime.now()
+                    ));
+        }
         return Result.success(null);
     }
 }

@@ -16,7 +16,7 @@
           <el-tooltip content="平移/查看 (V)" placement="bottom">
             <el-button size="small" :type="currentTool==='pan' ? 'primary' : ''" @click="setTool('pan')">平移</el-button>
           </el-tooltip>
-          <el-tooltip content="选择/删除标注 (S)" placement="bottom">
+          <el-tooltip content="选择/删除标注" placement="bottom">
             <el-button size="small" :type="currentTool==='select' ? 'primary' : ''" @click="setTool('select')">选择</el-button>
           </el-tooltip>
         </el-button-group>
@@ -29,11 +29,19 @@
             <el-tooltip content="画笔 (B)" placement="bottom">
               <el-button size="small" :type="currentTool==='brush' ? 'primary' : ''" @click="setTool('brush')">画笔</el-button>
             </el-tooltip>
-            <el-tooltip content="矩形 ROI (R)" placement="bottom">
-              <el-button size="small" :type="currentTool==='rect' ? 'primary' : ''" @click="setTool('rect')">矩形</el-button>
+            <el-tooltip content="推拉边缘 (N) Alt+滚轮调整大小" placement="bottom">
+              <el-button size="small" :type="currentTool==='nudge' ? 'primary' : ''" @click="setTool('nudge')">推拉</el-button>
             </el-tooltip>
-            <el-tooltip content="多边形 ROI (P)" placement="bottom">
-              <el-button size="small" :type="currentTool==='polygon' ? 'primary' : ''" @click="setTool('polygon')">多边形</el-button>
+            <el-tooltip content="橡皮擦 (E) Alt+滚轮调整大小" placement="bottom">
+              <el-button size="small" :type="currentTool==='eraser' ? 'primary' : ''" @click="setTool('eraser')">橡皮擦</el-button>
+            </el-tooltip>
+            <el-tooltip content="点标注 (P)" placement="bottom">
+              <el-button size="small" :type="currentTool==='point' ? 'primary' : ''" @click="setTool('point')">点</el-button>
+            </el-tooltip>
+            <el-tooltip content="AI 辅助分割 (M)" placement="bottom">
+              <el-button size="small" :type="currentTool==='sam' ? 'primary' : ''" @click="setTool('sam')">
+                <el-icon><MagicStick /></el-icon>
+              </el-button>
             </el-tooltip>
           </el-button-group>
 
@@ -73,19 +81,13 @@
             disabled
           >待审核中</el-button>
           <el-button
-            v-else-if="slide?.reviewStatus === 'APPROVED'"
-            size="small"
-            type="success"
-            disabled
-          >已通过</el-button>
-          <el-button
             v-else
             size="small"
             :loading="completing"
             :disabled="slide?.annoStatus === 'NOT_STARTED'"
-            :type="slide?.reviewStatus === 'REJECTED' ? 'warning' : 'default'"
+            :type="slide?.reviewStatus === 'REJECTED' ? 'warning' : slide?.reviewStatus === 'APPROVED' ? 'success' : 'default'"
             @click="markDone"
-          >{{ slide?.reviewStatus === 'REJECTED' ? '重新提交' : '提交审核' }}</el-button>
+          >{{ slide?.reviewStatus === 'REJECTED' ? '重新提交' : slide?.reviewStatus === 'APPROVED' ? '重新提交审核' : '提交审核' }}</el-button>
         </template>
 
         <!-- Reviewer: approve / reject -->
@@ -98,6 +100,17 @@
 
       <!-- Right: export + zoom controls -->
       <div class="header-right">
+        <template v-if="!isReviewer">
+          <el-tooltip content="导入标注 (JSON)" placement="bottom">
+            <el-button
+              size="small"
+              :icon="Upload"
+              :disabled="loading || !!errorMsg"
+              @click="showImportDialog = true"
+            >导入</el-button>
+          </el-tooltip>
+          <el-divider direction="vertical" />
+        </template>
         <el-tooltip content="导出数据集 (ZIP)" placement="bottom">
           <el-button
             size="small"
@@ -127,20 +140,154 @@
 
     <!-- ── Export dialog ──────────────────────────────────────────────────── -->
     <ExportDialog v-model="showExportDialog" :slide-id="slideId" />
+    <ImportDialog v-model="showImportDialog" :slide-id="slideId" @imported="onImported" />
+
+    <!-- ── Version history drawer ─────────────────────────────────────────── -->
+    <el-drawer
+      v-model="showVersionDrawer"
+      title="版本历史"
+      direction="rtl"
+      size="360px"
+      append-to-body
+    >
+      <div v-if="versionsLoading" class="ver-loading">
+        <el-icon class="loading-spin"><Loading /></el-icon>
+        <span>加载中...</span>
+      </div>
+      <div v-else-if="versions.length === 0" class="ver-empty">
+        暂无版本记录
+      </div>
+      <el-timeline v-else>
+        <el-timeline-item
+          v-for="ver in versions"
+          :key="ver.id"
+          :type="triggerType[ver.trigger] || ''"
+          :timestamp="formatTime(ver.createdAt)"
+          placement="top"
+        >
+          <div class="ver-card">
+            <div class="ver-title">
+              <el-tag :type="triggerType[ver.trigger] || ''" size="small" effect="plain">
+                {{ triggerLabel[ver.trigger] ?? ver.trigger }}
+              </el-tag>
+              <span class="ver-num">v{{ ver.versionNumber }}</span>
+              <el-button
+                size="small"
+                :type="ghostVersionNum === ver.versionNumber ? 'warning' : ''"
+                :loading="ghostLoading && ghostVersionNum === ver.versionNumber"
+                plain
+                class="ver-compare-btn"
+                @click="loadGhostVersion(ver)"
+              >{{ ghostVersionNum === ver.versionNumber ? '对比中' : '查看对比' }}</el-button>
+            </div>
+            <div v-if="ver.reviewerComment" class="ver-comment">
+              "{{ ver.reviewerComment }}"
+            </div>
+          </div>
+        </el-timeline-item>
+      </el-timeline>
+    </el-drawer>
+
+    <!-- ── Audit log drawer ───────────────────────────────────────────────── -->
+    <el-drawer
+      v-model="showAuditDrawer"
+      title="操作历史"
+      direction="rtl"
+      size="400px"
+      append-to-body
+    >
+      <div v-if="auditLoading" class="ver-loading">
+        <el-icon class="loading-spin"><Loading /></el-icon>
+        <span>加载中...</span>
+      </div>
+      <div v-else-if="auditLogs.length === 0" class="ver-empty">暂无操作记录</div>
+      <el-timeline v-else>
+        <el-timeline-item
+          v-for="log in auditLogs"
+          :key="log.id"
+          :type="auditActionType[log.action] || ''"
+          :timestamp="formatTime(log.createdAt)"
+          placement="top"
+        >
+          <div class="ver-card">
+            <div class="ver-title">
+              <el-tag :type="auditActionType[log.action] || ''" size="small" effect="plain">
+                {{ auditActionLabel[log.action] ?? log.action }}
+              </el-tag>
+              <span style="margin-left:8px;font-size:12px;color:#606266">{{ log.username }}</span>
+            </div>
+            <div v-if="log.detail" class="ver-comment">{{ formatAuditDetail(log.detail) }}</div>
+          </div>
+        </el-timeline-item>
+      </el-timeline>
+      <div v-if="!auditLoading && auditHasMore" style="text-align:center;margin-top:12px">
+        <el-button size="small" :loading="auditLoadingMore" @click="loadMoreAudit">加载更多</el-button>
+      </div>
+    </el-drawer>
+
+    <!-- ── Shortcut help dialog ────────────────────────────────────────── -->
+    <el-dialog v-model="showShortcutHelp" title="快捷键帮助" width="520px" append-to-body>
+      <div class="shortcut-help-grid">
+        <div class="shortcut-group">
+          <h4>工具切换</h4>
+          <div class="shortcut-row"><kbd>V</kbd><span>平移 / 查看</span></div>
+          <div class="shortcut-row"><kbd>B</kbd><span>画笔</span></div>
+          <div class="shortcut-row"><kbd>N</kbd><span>推拉边缘</span></div>
+          <div class="shortcut-row"><kbd>E</kbd><span>橡皮擦</span></div>
+          <div class="shortcut-row"><kbd>P</kbd><span>点标注</span></div>
+          <div class="shortcut-row"><kbd>M</kbd><span>AI 辅助分割（点/框模式）</span></div>
+          <div class="shortcut-row"><kbd>右键</kbd><span>AI模式：添加背景排除点（红）</span></div>
+          <div class="shortcut-row"><kbd>Esc</kbd><span>返回平移模式</span></div>
+        </div>
+        <div class="shortcut-group">
+          <h4>编辑操作</h4>
+          <div class="shortcut-row"><kbd>Ctrl + Z</kbd><span>撤销</span></div>
+          <div class="shortcut-row"><kbd>Ctrl + Y</kbd><span>重做</span></div>
+          <div class="shortcut-row"><kbd>Ctrl + S</kbd><span>保存</span></div>
+          <div class="shortcut-row"><kbd>Delete</kbd><span>删除选中标注</span></div>
+          <div class="shortcut-row"><kbd>Alt + 滚轮</kbd><span>调整画笔/橡皮擦大小</span></div>
+        </div>
+        <div class="shortcut-group">
+          <h4>视图导航</h4>
+          <div class="shortcut-row"><kbd>W A S D</kbd><span>平移画布</span></div>
+          <div class="shortcut-row"><kbd>方向键</kbd><span>平移画布</span></div>
+          <div class="shortcut-row"><kbd>+ / -</kbd><span>放大 / 缩小</span></div>
+          <div class="shortcut-row"><kbd>H</kbd><span>适合屏幕</span></div>
+          <div class="shortcut-row"><kbd>?</kbd><span>打开此帮助</span></div>
+        </div>
+      </div>
+    </el-dialog>
 
     <!-- ── Body ───────────────────────────────────────────────────────────── -->
     <div class="viewer-body">
       <!-- Left: label panel (hidden for reviewers) -->
       <LabelPanel
+        ref="labelPanelRef"
         v-if="!loading && !errorMsg && !isReviewer"
         :labels="labels"
         :activeId="activeLabelId"
         :brushSize="brushSize"
         :showBrushSize="currentTool === 'brush'"
-        @select="activeLabelId = $event"
+        :nudgeSize="nudgeSize"
+        :nudgeStrength="nudgeStrength"
+        :showNudgeSize="currentTool === 'nudge'"
+        :eraserSize="eraserSize"
+        :eraserMode="eraserMode"
+        :showEraserSize="currentTool === 'eraser'"
+        :pointSize="pointScreenR"
+        :showPointSize="currentTool === 'point'"
+        :editingId="pendingEditLabelId"
+        @select="activeLabelId = (activeLabelId === $event ? null : $event)"
         @add="onAddLabel"
         @delete="onDeleteLabel"
         @brush-size="brushSize = $event"
+        @nudge-size="nudgeSize = $event"
+        @nudge-strength="nudgeStrength = $event"
+        @eraser-size="eraserSize = $event"
+        @eraser-mode="eraserMode = $event"
+        @point-size="pointScreenR = $event"
+        @rename="onRenameLabel"
+        @color-change="onColorChangeLabel"
       />
 
       <!-- Center: OSD + Fabric overlay -->
@@ -157,10 +304,84 @@
           <canvas ref="fabricEl" />
         </div>
 
-        <!-- Polygon in-progress hint -->
-        <div v-if="currentTool === 'polygon' && polygonPoints.length > 0" class="polygon-hint">
-          双击或点击起点完成（{{ polygonPoints.length }} 点）· Esc 取消
+
+        <!-- ── Right floating dock ──────────────────────────────── -->
+        <div class="right-dock" v-if="!loading && !errorMsg">
+          <NotificationBell />
+          <div class="dock-divider" />
+          <el-tooltip content="版本历史" placement="left">
+            <button class="dock-btn" @click="openVersionHistory">
+              <el-icon><Clock /></el-icon>
+            </button>
+          </el-tooltip>
+          <el-tooltip content="操作历史" placement="left">
+            <button class="dock-btn" @click="openAuditLog">
+              <el-icon><Document /></el-icon>
+            </button>
+          </el-tooltip>
+          <div class="dock-divider" />
+          <el-tooltip content="快捷键帮助 (?)" placement="left">
+            <button class="dock-btn" @click="showShortcutHelp = true">
+              <el-icon><QuestionFilled /></el-icon>
+            </button>
+          </el-tooltip>
         </div>
+
+        <!-- SAM action bar -->
+        <Transition name="sam-fade">
+          <div
+            v-if="currentTool === 'sam' && !loading && !errorMsg && !isReviewer"
+            class="sam-action-bar"
+          >
+            <!-- Mode toggle -->
+            <template v-if="!samLoading">
+              <el-button-group size="small" style="margin-right:4px">
+                <el-tooltip content="点提示：左键目标，右键背景" placement="top">
+                  <el-button :type="samMode==='point' ? 'primary' : ''" @click="setSamMode('point')">点</el-button>
+                </el-tooltip>
+                <el-tooltip content="框提示：拖拽框选目标区域" placement="top">
+                  <el-button :type="samMode==='box' ? 'primary' : ''" @click="setSamMode('box')">框</el-button>
+                </el-tooltip>
+              </el-button-group>
+              <el-divider direction="vertical" style="border-color:#555;margin:0 6px;" />
+            </template>
+
+            <template v-if="samLoading">
+              <el-icon class="loading-spin" style="font-size:14px"><Loading /></el-icon>
+              <span class="sam-status-text">AI 推理中...</span>
+            </template>
+            <template v-else-if="samPreview">
+              <span class="sam-status-text">置信度 {{ (samPreview.score * 100).toFixed(1) }}%</span>
+              <el-divider direction="vertical" style="border-color:#555;margin:0 4px;" />
+              <el-button size="small" type="success" @click="samAccept">✓ 接受</el-button>
+              <el-button size="small" type="danger" plain @click="samReject">✗ 拒绝</el-button>
+              <el-button size="small" plain @click="samClear">重选</el-button>
+              <el-divider direction="vertical" style="border-color:#555;margin:0 4px;" />
+              <span class="sam-status-text" style="opacity:0.6">继续{{ samMode==='box' ? '拖拽' : '点击' }}可精化</span>
+            </template>
+            <template v-else-if="samHasPrompts">
+              <span class="sam-status-text">
+                <span v-if="samPoints.filter(p=>p.label===1).length > 0" style="color:#4caf50">● {{ samPoints.filter(p=>p.label===1).length }}</span>
+                <span v-if="samPoints.filter(p=>p.label===0).length > 0" style="color:#f44336;margin-left:6px">● {{ samPoints.filter(p=>p.label===0).length }}</span>
+                <span v-if="samBox" style="margin-left:6px;color:#ffc107">□ 框</span>
+              </span>
+              <el-button size="small" type="danger" plain style="margin-left:6px" @click="samClear">清除</el-button>
+            </template>
+            <template v-else>
+              <span v-if="samMode==='point'" class="sam-status-text">左键目标点（绿）&nbsp;右键背景点（红）&nbsp;多次点击精化</span>
+              <span v-else class="sam-status-text">拖拽框选目标区域，可配合点提示精化</span>
+            </template>
+          </div>
+        </Transition>
+
+        <!-- Ghost comparison badge -->
+        <Transition name="sam-fade">
+          <div v-if="ghostVersionNum !== null && !loading && !errorMsg" class="ghost-badge">
+            <span class="ghost-badge-text">当前 vs v{{ ghostVersionNum }}</span>
+            <el-divider direction="vertical" style="border-color:rgba(255,140,0,0.4);margin:0 8px;" />
+            <el-button size="small" plain class="ghost-close-btn" @click="clearGhost">关闭对比</el-button>
+          </div>
+        </Transition>
 
         <!-- Loading overlay -->
         <div v-if="loading" class="loading-overlay">
@@ -212,28 +433,32 @@
       <el-divider direction="vertical" />
       <span class="shortcut-hint">
         +/- 缩放 &nbsp;|&nbsp; H 适合 &nbsp;|&nbsp; 方向键平移 &nbsp;|&nbsp;
-        Del 删除选中 &nbsp;|&nbsp; Ctrl+Z/Y 撤销/重做 &nbsp;|&nbsp; Ctrl+S 保存
+        Del 删除选中 &nbsp;|&nbsp; B 画笔 &nbsp;|&nbsp; P 点标注 &nbsp;|&nbsp; M AI辅助 &nbsp;|&nbsp; E 橡皮擦 &nbsp;|&nbsp; Ctrl+Z/Y 撤销/重做 &nbsp;|&nbsp; Ctrl+S 保存
       </span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Plus, Minus, Loading, WarningFilled, Aim,
-  RefreshLeft, RefreshRight, Download, Delete
+  RefreshLeft, RefreshRight, Download, Upload, Delete, QuestionFilled, MagicStick, Clock, Document
 } from '@element-plus/icons-vue'
 import OpenSeadragon from 'openseadragon'
 import { fabric } from 'fabric'
 import { slideApi } from '@/api/slide'
 import { annotationApi } from '@/api/annotation'
 import { reviewApi } from '@/api/review'
+import { samApi } from '@/api/sam'
+import { auditLogApi } from '@/api/auditLog'
 import { useUserStore } from '@/stores/userStore'
 import LabelPanel from '@/components/LabelPanel.vue'
 import ExportDialog from '@/components/ExportDialog.vue'
+import ImportDialog from '@/components/ImportDialog.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const route      = useRoute()
 const router     = useRouter()
@@ -258,9 +483,16 @@ const zoomRaw     = ref(1)
 
 // ── Annotation state ──────────────────────────────────────────────────────────
 const labels        = ref([])
-const activeLabelId = ref(null)
+const activeLabelId      = ref(null)
+const pendingEditLabelId = ref(null)   // triggers inline edit in LabelPanel
 const annotations   = ref([])
 const brushSize     = ref(20)
+const nudgeSize     = ref(30)          // nudge brush radius in image pixels
+const nudgeStrength = ref(0.35)        // displacement factor (0–1)
+const eraserSize    = ref(20)          // eraser radius in image pixels
+const eraserMode    = ref('pixel')     // 'pixel' or 'stroke'
+const pointScreenR  = ref(7)           // desired screen radius (px) for point markers
+let tempLabelIdCtr  = 0               // counter for local-only label IDs (negative)
 const currentTool   = ref('pan')
 const isDirty       = ref(false)
 const saving        = ref(false)
@@ -269,17 +501,253 @@ const reviewing     = ref(false)   // reviewer approve/reject loading
 
 // ── Undo / redo ───────────────────────────────────────────────────────────────
 const MAX_HISTORY  = 20
-const history      = ref([[]])
+const history      = ref([{ annotations: [], labels: [] }])
 const historyIndex = ref(0)
 
-// ── Export ────────────────────────────────────────────────────────────────────
+// ── Export / Import ───────────────────────────────────────────────────────────
 const showExportDialog = ref(false)
+const showImportDialog = ref(false)
+const showShortcutHelp = ref(false)
+
+// ── Version history ───────────────────────────────────────────────────────────
+const showVersionDrawer  = ref(false)
+const versions           = ref([])
+const versionsLoading    = ref(false)
+const ghostAnnotations   = ref([])
+const ghostLabels        = ref([])
+const ghostVersionNum    = ref(null)   // version number currently shown as ghost, null = none
+const ghostLoading       = ref(false)
+
+const triggerLabel = {
+  SUBMIT:   '首次提交',
+  RESUBMIT: '重新提交',
+  REJECT:   '被拒绝',
+  APPROVE:  '已通过'
+}
+const triggerType = {
+  SUBMIT:   '',
+  RESUBMIT: 'warning',
+  REJECT:   'danger',
+  APPROVE:  'success'
+}
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+const showAuditDrawer  = ref(false)
+const auditLogs        = ref([])
+const auditLoading     = ref(false)
+const auditLoadingMore = ref(false)
+const auditPage        = ref(0)
+const auditHasMore     = ref(false)
+
+const auditActionLabel = {
+  SAVE:     '保存标注',
+  SUBMIT:   '提交审核',
+  RESUBMIT: '重新提交',
+  APPROVE:  '审核通过',
+  REJECT:   '审核拒绝',
+  IMPORT:   '导入标注'
+}
+const auditActionType = {
+  SAVE:     '',
+  SUBMIT:   'primary',
+  RESUBMIT: 'warning',
+  APPROVE:  'success',
+  REJECT:   'danger',
+  IMPORT:   'info'
+}
+
+function formatAuditDetail(detail) {
+  try {
+    const obj = typeof detail === 'string' ? JSON.parse(detail) : detail
+    return Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join('  |  ')
+  } catch {
+    return detail
+  }
+}
+
+async function openAuditLog() {
+  showAuditDrawer.value = true
+  auditLogs.value = []
+  auditPage.value = 0
+  auditHasMore.value = false
+  auditLoading.value = true
+  try {
+    const res = await auditLogApi.list({ slideId, page: 0, size: 20 })
+    const page = res.data
+    auditLogs.value = page.records ?? []
+    auditHasMore.value = auditLogs.value.length < page.total
+    auditPage.value = 1
+  } finally {
+    auditLoading.value = false
+  }
+}
+
+async function loadMoreAudit() {
+  auditLoadingMore.value = true
+  try {
+    const res = await auditLogApi.list({ slideId, page: auditPage.value, size: 20 })
+    const page = res.data
+    auditLogs.value.push(...(page.records ?? []))
+    auditHasMore.value = auditLogs.value.length < page.total
+    auditPage.value++
+  } finally {
+    auditLoadingMore.value = false
+  }
+}
+
+// Reload labels + annotations from server after a successful import
+async function onImported() {
+  try {
+    const [lblRes, annoRes] = await Promise.all([
+      annotationApi.listLabels(slideId),
+      annotationApi.list(slideId)
+    ])
+    labels.value      = lblRes.data  ?? []
+    annotations.value = (annoRes.data ?? []).map(normalizeAnno)
+    if (labels.value.length > 0 && !activeLabelId.value)
+      activeLabelId.value = labels.value[0].id
+    history.value      = [{ annotations: deepClone(annotations.value), labels: deepClone(labels.value) }]
+    historyIndex.value = 0
+    isDirty.value      = false
+    renderAllAnnotations()
+  } catch (e) {
+    console.error('刷新标注失败', e)
+  }
+}
+
+async function openVersionHistory() {
+  showVersionDrawer.value = true
+  if (versions.value.length > 0) return
+  versionsLoading.value = true
+  try {
+    const res = await annotationApi.listVersions(slideId)
+    versions.value = res.data ?? []
+  } catch {
+    ElMessage.error('加载版本历史失败')
+  } finally {
+    versionsLoading.value = false
+  }
+}
+
+function formatTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return d.toLocaleString('zh-CN', { hour12: false })
+}
+
+async function loadGhostVersion(ver) {
+  // Toggle off if already showing this version
+  if (ghostVersionNum.value === ver.versionNumber) {
+    clearGhost()
+    return
+  }
+  ghostLoading.value = true
+  ghostVersionNum.value = ver.versionNumber
+  try {
+    const res = await annotationApi.getVersionAnnotations(slideId, ver.id)
+    const data = res.data ?? {}
+    ghostAnnotations.value = (data.annotations ?? []).map(normalizeAnno)
+    ghostLabels.value = data.labels ?? []
+    renderGhostAnnotations()
+  } catch {
+    ElMessage.error('加载版本快照失败')
+    ghostVersionNum.value = null
+  } finally {
+    ghostLoading.value = false
+  }
+}
+
+function renderGhostAnnotations() {
+  if (!fc) return
+  fc.getObjects().filter(o => o._isGhost).forEach(o => fc.remove(o))
+  if (ghostAnnotations.value.length === 0) { fc.renderAll(); return }
+
+  const GHOST = '#ff8c00'
+  for (const anno of ghostAnnotations.value) {
+    const base = {
+      stroke:         GHOST,
+      strokeWidth:    2,
+      strokeDashArray:[6, 4],
+      strokeUniform:  true,
+      selectable:     false,
+      evented:        false,
+      hasControls:    false,
+      hasBorders:     false,
+      opacity:        0.7,
+      _isGhost:       true,
+    }
+
+    if (anno.type === 'rect') {
+      const [[x1, y1], [x2, y2]] = anno.coordinates
+      fc.add(new fabric.Rect({
+        ...base,
+        left:   x1,
+        top:    y1,
+        width:  Math.abs(x2 - x1),
+        height: Math.abs(y2 - y1),
+        fill:   hexToRgba(GHOST, 0.15),
+      }))
+    } else if (anno.type === 'polygon') {
+      const svgPath = smoothPolygonToSvgPath(anno.coordinates)
+      if (svgPath) {
+        fc.add(new fabric.Path(svgPath, { ...base, fill: 'transparent' }))
+      } else {
+        fc.add(new fabric.Polyline(
+          anno.coordinates.map(([x, y]) => ({ x, y })),
+          { ...base, fill: 'transparent' }
+        ))
+      }
+    } else if (anno.type === 'brush') {
+      for (const stroke of anno.coordinates) {
+        fc.add(new fabric.Polyline(
+          stroke.points.map(([x, y]) => ({ x, y })),
+          {
+            ...base,
+            fill:           'transparent',
+            strokeWidth:     stroke.size,
+            strokeUniform:   false,
+            strokeLineCap:  'round',
+            strokeLineJoin: 'round',
+          }
+        ))
+      }
+    } else if (anno.type === 'point') {
+      const [x, y] = anno.coordinates
+      const scale = fc.viewportTransform?.[0] ?? 0.01
+      const r = Math.max(1, pointScreenR.value / scale)
+      fc.add(new fabric.Circle({
+        ...base,
+        left:            x - r,
+        top:             y - r,
+        radius:          r,
+        fill:            hexToRgba(GHOST, 0.5),
+        stroke:          '#ffffff',
+        strokeDashArray: null,
+      }))
+    }
+  }
+  fc.renderAll()
+}
+
+function clearGhost() {
+  fc?.getObjects().filter(o => o._isGhost).forEach(o => fc.remove(o))
+  fc?.renderAll()
+  ghostAnnotations.value = []
+  ghostLabels.value = []
+  ghostVersionNum.value = null
+}
+
+// ── SAM state ─────────────────────────────────────────────────────────────────
+const samPoints   = ref([])    // [{ x, y, label }]  label: 1=fg, 0=bg
+const samLoading  = ref(false)
+const samPreview  = ref(null)  // { polygons: [[[x,y],...]], score: number }
+const samMode     = ref('point')  // 'point' | 'box'
+const samBox      = ref(null)     // { x1, y1, x2, y2 } in level-0 WSI coords (finalized)
+let   samBoxStart = null          // drag start { x, y } (non-reactive)
+let   samIsDragging = false
 
 // ── Context menu ──────────────────────────────────────────────────────────────
 const contextMenu = ref({ visible: false, x: 0, y: 0, annoId: null, labelId: null })
-
-// ── Polygon in-progress ───────────────────────────────────────────────────────
-const polygonPoints = ref([])  // [[x,y], ...]
 
 // ── Non-reactive instances ────────────────────────────────────────────────────
 let viewer        = null
@@ -287,15 +755,15 @@ let fc            = null
 let autoSaveTimer = null
 let localIdCtr    = 0
 
-// Drawing transient state
-let isDrawing  = false
-let drawStart  = null
-let previewObj = null
-let currentScale = 1
+// Nudge tool state
+let nudgeCursorCircle = null   // fabric.Circle for brush preview
+let nudgeLastPtr      = null   // last pointer position during drag
+let isNudging         = false
+let nudgeDidChange    = false  // whether any vertex was actually displaced
 
-// Polygon preview fabric objects
-let polyPreviewCircle = null
-let polyPreviewLine   = null
+// Eraser tool state
+let eraserCursorCircle = null  // fabric.Circle for eraser preview
+let isErasing          = false
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 const zoomLabel = computed(() => {
@@ -305,9 +773,11 @@ const zoomLabel = computed(() => {
   return `${Math.round(mag * 100)}%`
 })
 
+const labelPanelRef = ref(null)
 const activeLabel = computed(() =>
   labels.value.find(l => l.id === activeLabelId.value)
 )
+const samHasPrompts = computed(() => samPoints.value.length > 0 || samBox.value !== null)
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
@@ -364,7 +834,7 @@ onMounted(async () => {
     labels.value      = lblRes.data  ?? []
     annotations.value = (annoRes.data ?? []).map(normalizeAnno)
     if (labels.value.length > 0) activeLabelId.value = labels.value[0].id
-    history.value      = [deepClone(annotations.value)]
+    history.value      = [{ annotations: deepClone(annotations.value), labels: deepClone(labels.value) }]
     historyIndex.value = 0
   } catch (e) {
     console.error('加载标注失败', e)
@@ -468,10 +938,10 @@ function initFabricCanvas() {
   fc.on('mouse:down',     onFabricDown)
   fc.on('mouse:move',     onFabricMove)
   fc.on('mouse:up',       onFabricUp)
-  fc.on('mouse:dblclick', onFabricDblClick)
   fc.on('path:created',   onPathCreated)
 
   fabricEl.value.addEventListener('contextmenu', onCanvasContextMenu)
+  fabricWrapper.value.addEventListener('wheel', onCanvasWheel, { passive: false })
 
   syncFabricTransform()
 }
@@ -488,21 +958,32 @@ function syncFabricTransform() {
 
   // 1 image px → scale screen px
   const scale = containerW / (bounds.width * W)
-  currentScale = scale
 
   // screen offset of image origin (0,0)
   const tx = -(bounds.x * containerW) / bounds.width
   const ty = -(bounds.y * containerW) / bounds.width  // uniform scaling
 
   fc.setViewportTransform([scale, 0, 0, scale, tx, ty])
+  updatePointObjects()
+  updateSamPointObjects()
   fc.renderAll()
+}
+
+function updatePointObjects() {
+  if (!fc) return
+  const scale = fc.viewportTransform[0]
+  if (!scale || scale <= 0) return
+  const r = pointScreenR.value / scale
+  fc.forEachObject(o => {
+    if (o._isPoint) {
+      o.set({ radius: r, left: o._pointX - r, top: o._pointY - r })
+      o.setCoords()
+    }
+  })
 }
 
 // ── Tool management ───────────────────────────────────────────────────────────
 function setTool(tool) {
-  if (currentTool.value === 'polygon' && polygonPoints.value.length > 0) {
-    cancelPolygon()
-  }
   currentTool.value = tool
   if (!fc || !viewer) return
 
@@ -532,14 +1013,54 @@ function setTool(tool) {
     fc.defaultCursor = 'crosshair'
     wrapper.style.pointerEvents = 'auto'
 
-  } else {
-    // rect / polygon
+  } else if (tool === 'nudge') {
+    viewer.setMouseNavEnabled(false)
+    fc.isDrawingMode = false
+    fc.selection     = false
+    fc.forEachObject(o => { o.selectable = false; o.evented = false })
+    fc.defaultCursor = 'none'
+    wrapper.style.pointerEvents = 'auto'
+    // Show nudge cursor circle
+    updateNudgeCursor(null)
+
+  } else if (tool === 'eraser') {
+    viewer.setMouseNavEnabled(false)
+    fc.isDrawingMode = false
+    fc.selection     = false
+    fc.forEachObject(o => { o.selectable = false; o.evented = false })
+    fc.defaultCursor = 'none'
+    wrapper.style.pointerEvents = 'auto'
+    updateEraserCursor(null)
+
+  } else if (tool === 'point') {
     viewer.setMouseNavEnabled(false)
     fc.isDrawingMode = false
     fc.selection     = false
     fc.forEachObject(o => { o.selectable = false; o.evented = false })
     fc.defaultCursor = 'crosshair'
     wrapper.style.pointerEvents = 'auto'
+
+  } else if (tool === 'sam') {
+    viewer.setMouseNavEnabled(false)
+    fc.isDrawingMode = false
+    fc.selection     = false
+    fc.forEachObject(o => { o.selectable = false; o.evented = false })
+    fc.defaultCursor = 'crosshair'
+    wrapper.style.pointerEvents = 'auto'
+  }
+
+  // Clean up SAM state when switching away
+  if (tool !== 'sam') samClear()
+
+  // Clean up nudge cursor when switching away
+  if (tool !== 'nudge' && nudgeCursorCircle) {
+    fc.remove(nudgeCursorCircle)
+    nudgeCursorCircle = null
+  }
+  // Clean up eraser cursor when switching away
+  if (tool !== 'eraser' && eraserCursorCircle) {
+    fc.remove(eraserCursorCircle)
+    eraserCursorCircle = null
   }
 
   fc.renderAll()
@@ -553,13 +1074,17 @@ watch(activeLabelId, () => {
   if (fc?.freeDrawingBrush && currentTool.value === 'brush')
     fc.freeDrawingBrush.color = activeLabel.value?.color ?? '#ff0000'
 })
+watch(pointScreenR, () => {
+  updatePointObjects()
+  fc?.renderAll()
+})
 
 // ── Annotation rendering ──────────────────────────────────────────────────────
 function renderAllAnnotations() {
   if (!fc) return
   fc.clear()
   for (const anno of annotations.value) renderAnnotation(anno)
-  fc.renderAll()
+  renderGhostAnnotations()   // re-add ghost overlay after clear (calls renderAll)
 }
 
 function renderAnnotation(anno) {
@@ -590,10 +1115,15 @@ function renderAnnotation(anno) {
     }))
 
   } else if (anno.type === 'polygon') {
-    fc.add(new fabric.Polygon(
-      anno.coordinates.map(([x, y]) => ({ x, y })),
-      { ...base, fill: hexToRgba(color, 0.15) }
-    ))
+    const svgPath = smoothPolygonToSvgPath(anno.coordinates)
+    if (svgPath) {
+      fc.add(new fabric.Path(svgPath, { ...base, fill: 'transparent' }))
+    } else {
+      fc.add(new fabric.Polyline(
+        anno.coordinates.map(([x, y]) => ({ x, y })),
+        { ...base, fill: 'transparent' }
+      ))
+    }
 
   } else if (anno.type === 'brush') {
     for (const stroke of anno.coordinates) {
@@ -609,135 +1139,539 @@ function renderAnnotation(anno) {
         }
       ))
     }
+
+  } else if (anno.type === 'point') {
+    const [x, y] = anno.coordinates
+    const scale = fc.viewportTransform?.[0] ?? 0.01
+    const r = Math.max(1, pointScreenR.value / scale)
+    fc.add(new fabric.Circle({
+      ...base,
+      left:          x - r,
+      top:           y - r,
+      radius:        r,
+      fill:          hexToRgba(color, 0.85),
+      stroke:        '#ffffff',
+      strokeWidth:   2,
+      strokeUniform: true,
+      _isPoint:      true,
+      _pointX:       x,
+      _pointY:       y,
+    }))
   }
 }
 
 // ── Drawing: mouse events ─────────────────────────────────────────────────────
 function onFabricDown(e) {
   const tool = currentTool.value
-  if (tool !== 'rect' && tool !== 'polygon') return
-  if (!activeLabel.value) { ElMessage.warning('请先选择一个标签'); return }
-
   const ptr = fc.getPointer(e.e)
 
-  if (tool === 'rect') {
-    isDrawing  = true
-    drawStart  = { x: ptr.x, y: ptr.y }
-    previewObj = new fabric.Rect({
-      left: ptr.x, top: ptr.y, width: 0, height: 0,
-      stroke: activeLabel.value.color,
-      fill:   hexToRgba(activeLabel.value.color, 0.15),
-      strokeWidth: 2, strokeUniform: true,
-      selectable: false, evented: false
-    })
-    fc.add(previewObj)
+  if (tool === 'nudge') { onNudgeDown(ptr); return }
+  if (tool === 'eraser') { onEraserDown(ptr); return }
+  if (tool === 'point') {
+    addAnnotation({ type: 'point', coordinates: [Math.round(ptr.x), Math.round(ptr.y)] })
     return
   }
-
-  if (tool === 'polygon') {
-    // Click near first point → close
-    if (polygonPoints.value.length >= 3) {
-      const [fx, fy] = polygonPoints.value[0]
-      const dx = Math.abs(ptr.x - fx) * currentScale
-      const dy = Math.abs(ptr.y - fy) * currentScale
-      if (dx < 12 && dy < 12) { finalizePolygon(); return }
-    }
-    polygonPoints.value.push([Math.round(ptr.x), Math.round(ptr.y)])
-    updatePolygonPreview()
-  }
+  if (tool === 'sam') { onSamDown(ptr, e.e.button ?? 0); return }
 }
 
 function onFabricMove(e) {
-  if (currentTool.value !== 'rect' || !isDrawing || !previewObj) return
-  const ptr = fc.getPointer(e.e)
-  previewObj.set({
-    left:   Math.min(ptr.x, drawStart.x),
-    top:    Math.min(ptr.y, drawStart.y),
-    width:  Math.abs(ptr.x - drawStart.x),
-    height: Math.abs(ptr.y - drawStart.y)
-  })
-  fc.renderAll()
+  const tool = currentTool.value
+  if (tool === 'nudge') { onNudgeMove(fc.getPointer(e.e)); return }
+  if (tool === 'eraser') { onEraserMove(fc.getPointer(e.e)); return }
+  if (tool === 'sam') { onSamMove(fc.getPointer(e.e)); return }
 }
 
 function onFabricUp(e) {
-  if (currentTool.value !== 'rect' || !isDrawing || !previewObj) return
-  isDrawing = false
-  const ptr = fc.getPointer(e.e)
-  const x1  = Math.round(Math.min(ptr.x, drawStart.x))
-  const y1  = Math.round(Math.min(ptr.y, drawStart.y))
-  const x2  = Math.round(Math.max(ptr.x, drawStart.x))
-  const y2  = Math.round(Math.max(ptr.y, drawStart.y))
-
-  fc.remove(previewObj)
-  previewObj = null
-
-  if (Math.abs(x2 - x1) < 5 || Math.abs(y2 - y1) < 5) { fc.renderAll(); return }
-  addAnnotation({ type: 'rect', coordinates: [[x1, y1], [x2, y2]] })
+  if (currentTool.value === 'nudge') { onNudgeUp(); return }
+  if (currentTool.value === 'eraser') { onEraserUp(); return }
+  if (currentTool.value === 'sam') { onSamUp(fc.getPointer(e.e)); return }
 }
 
-function onFabricDblClick() {
-  if (currentTool.value !== 'polygon') return
-  // dblclick fires two single clicks first; remove the extra last point
-  polygonPoints.value.pop()
-  if (polygonPoints.value.length < 3) {
-    cancelPolygon()
-    ElMessage.warning('多边形至少需要 3 个点')
-    return
+// ── Polygon self-intersection removal ────────────────────────────────────────
+// After nudge, the polygon can fold on itself. This detects crossing edges
+// and removes the loop between them, keeping the shorter path.
+function removePolygonSelfIntersections(coords) {
+  if (coords.length < 4) return coords
+
+  // Find intersection point of segments (p1->p2) and (p3->p4)
+  function segIntersect(p1, p2, p3, p4) {
+    const d1x = p2[0] - p1[0], d1y = p2[1] - p1[1]
+    const d2x = p4[0] - p3[0], d2y = p4[1] - p3[1]
+    const cross = d1x * d2y - d1y * d2x
+    if (Math.abs(cross) < 1e-10) return null
+    const t = ((p3[0] - p1[0]) * d2y - (p3[1] - p1[1]) * d2x) / cross
+    const u = ((p3[0] - p1[0]) * d1y - (p3[1] - p1[1]) * d1x) / cross
+    if (t > 0.001 && t < 0.999 && u > 0.001 && u < 0.999) {
+      return [Math.round(p1[0] + t * d1x), Math.round(p1[1] + t * d1y)]
+    }
+    return null
   }
-  finalizePolygon()
-}
 
-// Polygon preview
-function updatePolygonPreview() {
-  if (polyPreviewCircle) { fc.remove(polyPreviewCircle); polyPreviewCircle = null }
-  if (polyPreviewLine)   { fc.remove(polyPreviewLine);   polyPreviewLine   = null }
-
-  const pts   = polygonPoints.value
-  const color = activeLabel.value?.color ?? '#ff0000'
-
-  if (pts.length === 0) { fc.renderAll(); return }
-
-  // First-point circle (click target to close)
-  polyPreviewCircle = new fabric.Circle({
-    left: pts[0][0] - 5, top: pts[0][1] - 5,
-    radius: 5, fill: color, opacity: 0.8,
-    selectable: false, evented: false
-  })
-  fc.add(polyPreviewCircle)
-
-  if (pts.length >= 2) {
-    polyPreviewLine = new fabric.Polyline(
-      pts.map(([x, y]) => ({ x, y })),
-      {
-        stroke: color, fill: 'transparent',
-        strokeWidth: 2, strokeUniform: true,
-        strokeDashArray: [6, 3],
-        selectable: false, evented: false
+  // Iteratively remove one self-intersection at a time
+  let pts = coords.slice()
+  let maxIter = 50
+  while (maxIter-- > 0) {
+    let found = false
+    const n = pts.length
+    for (let i = 0; i < n && !found; i++) {
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue // adjacent (wrap-around)
+        const ip = segIntersect(pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n])
+        if (ip) {
+          // Two paths: remove i+1..j  or  remove j+1..i (wrapping)
+          // Keep the path with fewer removed vertices (shorter loop)
+          const loopLen = j - i - 1
+          const otherLen = n - j - 1 + i
+          if (loopLen <= otherLen) {
+            // Remove vertices between i and j, insert intersection point
+            pts = [...pts.slice(0, i + 1), ip, ...pts.slice(j + 1)]
+          } else {
+            // Remove the other side
+            pts = [...pts.slice(i + 1, j + 1), ip]
+          }
+          found = true
+          break
+        }
       }
-    )
-    fc.add(polyPreviewLine)
+    }
+    if (!found) break
   }
+  return pts.length >= 3 ? pts : coords
+}
+
+// ── Catmull-Rom spline → smooth SVG path ──────────────────────────────────────
+// Converts polygon vertices to a closed smooth SVG path using Catmull-Rom → cubic Bezier
+function smoothPolygonToSvgPath(coords, tension = 0.35) {
+  const n = coords.length
+  if (n < 3) return null
+  const pts = coords.map(([x, y]) => ({ x, y }))
+
+  // Build cubic bezier commands for each segment (open curve, no closing)
+  const commands = []
+  commands.push(`M ${pts[0].x} ${pts[0].y}`)
+
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)]
+    const p1 = pts[i]
+    const p2 = pts[i + 1]
+    const p3 = pts[Math.min(n - 1, i + 2)]
+
+    // Catmull-Rom to cubic Bezier control points
+    const cp1x = p1.x + (p2.x - p0.x) * tension
+    const cp1y = p1.y + (p2.y - p0.y) * tension
+    const cp2x = p2.x - (p3.x - p1.x) * tension
+    const cp2y = p2.y - (p3.y - p1.y) * tension
+
+    commands.push(`C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${p2.x} ${p2.y}`)
+  }
+  return commands.join(' ')
+}
+
+// Simplify polygon by removing near-collinear points (Douglas-Peucker-like)
+function simplifyPolygon(coords, tolerance = 3) {
+  if (coords.length < 5) return coords
+  const result = []
+  for (let i = 0; i < coords.length; i++) {
+    const prev = coords[(i - 1 + coords.length) % coords.length]
+    const curr = coords[i]
+    const next = coords[(i + 1) % coords.length]
+    // Distance from curr to line(prev, next)
+    const dx = next[0] - prev[0], dy = next[1] - prev[1]
+    const len = Math.sqrt(dx * dx + dy * dy)
+    if (len < 1e-10) { result.push(curr); continue }
+    const dist = Math.abs((curr[0] - prev[0]) * dy - (curr[1] - prev[1]) * dx) / len
+    if (dist >= tolerance) result.push(curr)
+  }
+  return result.length >= 3 ? result : coords
+}
+
+// ── Nudge tool: cursor + vertex displacement ─────────────────────────────────
+function updateNudgeCursor(ptr) {
+  if (nudgeCursorCircle) { fc.remove(nudgeCursorCircle); nudgeCursorCircle = null }
+  if (!ptr) { fc.renderAll(); return }
+  const r = nudgeSize.value
+  nudgeCursorCircle = new fabric.Circle({
+    left: ptr.x - r, top: ptr.y - r,
+    radius: r,
+    fill: 'transparent',
+    stroke: '#ffffff',
+    strokeWidth: 1.5,
+    strokeDashArray: [4, 3],
+    strokeUniform: true,
+    selectable: false,
+    evented: false,
+    excludeFromExport: true
+  })
+  fc.add(nudgeCursorCircle)
   fc.renderAll()
 }
 
-function cancelPolygon() {
-  polygonPoints.value = []
-  if (polyPreviewCircle) { fc.remove(polyPreviewCircle); polyPreviewCircle = null }
-  if (polyPreviewLine)   { fc.remove(polyPreviewLine);   polyPreviewLine   = null }
-  fc?.renderAll()
+function onNudgeDown(ptr) {
+  isNudging = true
+  nudgeDidChange = false
+  nudgeLastPtr = { x: ptr.x, y: ptr.y }
 }
 
-function finalizePolygon() {
-  const pts = polygonPoints.value.map(([x, y]) => [Math.round(x), Math.round(y)])
-  cancelPolygon()
-  addAnnotation({ type: 'polygon', coordinates: pts })
+// Returns the minimum distance from point (cx, cy) to line segment (ax,ay)-(bx,by)
+function pointToSegmentDist(cx, cy, ax, ay, bx, by) {
+  const abx = bx - ax, aby = by - ay
+  const len2 = abx * abx + aby * aby
+  if (len2 === 0) return Math.sqrt((cx - ax) ** 2 + (cy - ay) ** 2)
+  let t = ((cx - ax) * abx + (cy - ay) * aby) / len2
+  t = Math.max(0, Math.min(1, t))
+  const px = ax + t * abx, py = ay + t * aby
+  return Math.sqrt((cx - px) ** 2 + (cy - py) ** 2)
+}
+
+// Insert extra vertices along polygon edges that pass through the brush circle
+// so that even long edges without nearby vertices can be pushed/pulled.
+function subdivideEdgesInRadius(coords, cx, cy, radius) {
+  const result = []
+  const n = coords.length
+  for (let i = 0; i < n; i++) {
+    const a = coords[i]
+    const b = coords[(i + 1) % n]
+    result.push(a)
+
+    // Check if edge passes near the brush center
+    const edgeDist = pointToSegmentDist(cx, cy, a[0], a[1], b[0], b[1])
+    if (edgeDist >= radius) continue
+
+    // Both endpoints already close enough — no need to subdivide
+    const dA = Math.sqrt((a[0] - cx) ** 2 + (a[1] - cy) ** 2)
+    const dB = Math.sqrt((b[0] - cx) ** 2 + (b[1] - cy) ** 2)
+    if (dA < radius && dB < radius) continue
+
+    // Insert sample points along the edge within the brush radius
+    const edgeLen = Math.sqrt((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2)
+    // Skip if edge is already short enough (vertices are dense)
+    const minEdge = Math.max(3, radius * 0.15)
+    if (edgeLen < minEdge) continue
+    const step = Math.max(5, radius * 0.4)  // spacing between inserted points
+    const steps = Math.ceil(edgeLen / step)
+    for (let s = 1; s < steps; s++) {
+      const t = s / steps
+      const px = a[0] + (b[0] - a[0]) * t
+      const py = a[1] + (b[1] - a[1]) * t
+      const d = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2)
+      if (d < radius) {
+        result.push([Math.round(px), Math.round(py)])
+      }
+    }
+  }
+  return result
+}
+
+function onNudgeMove(ptr) {
+  // Always update cursor position
+  updateNudgeCursor(ptr)
+
+  if (!isNudging || !nudgeLastPtr) return
+
+  const dx = ptr.x - nudgeLastPtr.x
+  const dy = ptr.y - nudgeLastPtr.y
+  const moveDist = Math.sqrt(dx * dx + dy * dy)
+  if (moveDist < 0.5) return  // ignore sub-pixel jitter
+
+  const radius = nudgeSize.value
+  let changed = false
+
+  for (const anno of annotations.value) {
+    // Convert rect to polygon — check edges, not just corners
+    if (anno.type === 'rect') {
+      const [[x1, y1], [x2, y2]] = anno.coordinates
+      const corners = [[x1,y1],[x2,y1],[x2,y2],[x1,y2]]
+      const edgeHit = corners.some((a, i) => {
+        const b = corners[(i + 1) % 4]
+        return pointToSegmentDist(ptr.x, ptr.y, a[0], a[1], b[0], b[1]) < radius
+      })
+      if (edgeHit) {
+        anno.type = 'polygon'
+        anno.coordinates = corners
+      }
+    }
+
+    if (anno.type === 'polygon') {
+      // Only subdivide if vertex density in brush area is low
+      const nearCount = anno.coordinates.filter(([px, py]) =>
+        Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2) < radius
+      ).length
+      if (nearCount < Math.max(4, Math.ceil(radius * 0.15))) {
+        anno.coordinates = subdivideEdgesInRadius(anno.coordinates, ptr.x, ptr.y, radius)
+      }
+
+      for (let i = 0; i < anno.coordinates.length; i++) {
+        const [px, py] = anno.coordinates[i]
+        const dist = Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2)
+        if (dist < radius) {
+          const factor = nudgeStrength.value * (1 - dist / radius)
+          anno.coordinates[i] = [
+            Math.round(px + dx * factor),
+            Math.round(py + dy * factor)
+          ]
+          changed = true
+        }
+      }
+
+      // Merge consecutive vertices that are too close to prevent fold-up artifacts
+      if (changed && anno.coordinates.length > 4) {
+        const minDist = Math.max(3, radius * 0.2)
+        const merged = [anno.coordinates[0]]
+        for (let i = 1; i < anno.coordinates.length; i++) {
+          const prev = merged[merged.length - 1]
+          const cur = anno.coordinates[i]
+          const d = Math.sqrt((cur[0] - prev[0]) ** 2 + (cur[1] - prev[1]) ** 2)
+          if (d >= minDist) merged.push(cur)
+        }
+        if (merged.length >= 3) anno.coordinates = merged
+      }
+    } else if (anno.type === 'brush') {
+      for (const stroke of anno.coordinates) {
+        for (let i = 0; i < stroke.points.length; i++) {
+          const [px, py] = stroke.points[i]
+          const dist = Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2)
+          if (dist < radius) {
+            const factor = nudgeStrength.value * (1 - dist / radius)
+            stroke.points[i] = [
+              Math.round(px + dx * factor),
+              Math.round(py + dy * factor)
+            ]
+            changed = true
+          }
+        }
+      }
+    } else if (anno.type === 'point') {
+      const [px, py] = anno.coordinates
+      const dist = Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2)
+      if (dist < radius) {
+        const factor = nudgeStrength.value * (1 - dist / radius)
+        anno.coordinates = [
+          Math.round(px + dx * factor),
+          Math.round(py + dy * factor)
+        ]
+        changed = true
+      }
+    }
+  }
+
+  if (changed) {
+    nudgeDidChange = true
+    renderAllAnnotations()
+    // Re-add the nudge cursor on top after re-render
+    updateNudgeCursor(ptr)
+  }
+
+  nudgeLastPtr = { x: ptr.x, y: ptr.y }
+}
+
+function onNudgeUp() {
+  if (isNudging) {
+    isNudging = false
+    nudgeLastPtr = null
+    if (nudgeDidChange) {
+      // Post-process: remove self-intersections and simplify
+      for (const anno of annotations.value) {
+        if (anno.type === 'polygon' && anno.coordinates.length >= 4) {
+          anno.coordinates = removePolygonSelfIntersections(anno.coordinates)
+          anno.coordinates = simplifyPolygon(anno.coordinates)
+        }
+      }
+      renderAllAnnotations()
+      pushHistory()
+      isDirty.value = true
+    }
+    nudgeDidChange = false
+  }
+}
+
+// Scroll wheel: zoom viewport by default; Alt+wheel adjusts radius for nudge/eraser
+function onCanvasWheel(e) {
+  const tool = currentTool.value
+
+  // Alt+wheel → adjust tool radius for nudge / eraser
+  if (e.altKey) {
+    if (tool === 'nudge') {
+      e.preventDefault()
+      e.stopPropagation()
+      const delta = e.deltaY > 0 ? -3 : 3
+      nudgeSize.value = Math.max(5, Math.min(200, nudgeSize.value + delta))
+      if (fc) updateNudgeCursor(fc.getPointer(e))
+      return
+    } else if (tool === 'eraser') {
+      e.preventDefault()
+      e.stopPropagation()
+      const delta = e.deltaY > 0 ? -3 : 3
+      eraserSize.value = Math.max(1, Math.min(200, eraserSize.value + delta))
+      if (fc) updateEraserCursor(fc.getPointer(e))
+      return
+    }
+  }
+
+  // Default: forward wheel to OpenSeadragon for zoom
+  if (viewer) {
+    e.preventDefault()
+    e.stopPropagation()
+    const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2
+    const viewportPoint = viewer.viewport.pointFromPixel(
+      new OpenSeadragon.Point(e.offsetX, e.offsetY)
+    )
+    viewer.viewport.zoomBy(factor, viewportPoint)
+  }
+}
+
+// ── Eraser tool ──────────────────────────────────────────────────────────────
+function updateEraserCursor(ptr) {
+  if (eraserCursorCircle) { fc.remove(eraserCursorCircle); eraserCursorCircle = null }
+  if (!ptr) { fc.renderAll(); return }
+  const r = eraserSize.value
+  eraserCursorCircle = new fabric.Circle({
+    left: ptr.x - r, top: ptr.y - r,
+    radius: r,
+    fill: 'rgba(255,80,80,0.1)',
+    stroke: '#ff4444',
+    strokeWidth: 1.5,
+    strokeDashArray: [4, 3],
+    strokeUniform: true,
+    selectable: false,
+    evented: false,
+    excludeFromExport: true
+  })
+  fc.add(eraserCursorCircle)
+  fc.renderAll()
+}
+
+function onEraserDown(ptr) {
+  isErasing = true
+  applyEraser(ptr)
+}
+
+function onEraserMove(ptr) {
+  updateEraserCursor(ptr)
+  if (!isErasing) return
+  applyEraser(ptr)
+}
+
+function onEraserUp() {
+  if (isErasing) {
+    isErasing = false
+    // Clean up empty annotations
+    annotations.value = annotations.value.filter(a => {
+      if (a.type === 'brush') return a.coordinates.length > 0
+      if (a.type === 'polygon') return a.coordinates.length >= 3
+      return true
+    })
+    renderAllAnnotations()
+    updateEraserCursor(null)
+    pushHistory()
+    isDirty.value = true
+  }
+}
+
+function applyEraser(ptr) {
+  const radius = eraserSize.value
+  const mode = eraserMode.value
+  let changed = false
+
+  if (mode === 'stroke') {
+    // ── Stroke mode: remove entire strokes/annotations that intersect ──
+    for (let ai = annotations.value.length - 1; ai >= 0; ai--) {
+      const anno = annotations.value[ai]
+
+      if (anno.type === 'brush') {
+        // Remove individual strokes that have any point within radius
+        const before = anno.coordinates.length
+        anno.coordinates = anno.coordinates.filter(stroke =>
+          !stroke.points.some(([px, py]) =>
+            Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2) < radius
+          )
+        )
+        if (anno.coordinates.length !== before) changed = true
+      } else if (anno.type === 'polygon') {
+        // Remove polygon if any vertex is within radius
+        const hit = anno.coordinates.some(([px, py]) =>
+          Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2) < radius
+        )
+        if (hit) { annotations.value.splice(ai, 1); changed = true }
+      } else if (anno.type === 'rect') {
+        const [[x1, y1], [x2, y2]] = anno.coordinates
+        const corners = [[x1,y1],[x2,y1],[x2,y2],[x1,y2]]
+        const hit = corners.some(([px, py]) =>
+          Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2) < radius
+        ) || corners.some((a, i) => {
+          const b = corners[(i + 1) % 4]
+          return pointToSegmentDist(ptr.x, ptr.y, a[0], a[1], b[0], b[1]) < radius
+        })
+        if (hit) { annotations.value.splice(ai, 1); changed = true }
+      } else if (anno.type === 'point') {
+        const [px, py] = anno.coordinates
+        if (Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2) < radius) {
+          annotations.value.splice(ai, 1)
+          changed = true
+        }
+      }
+    }
+
+  } else {
+    // ── Pixel mode: remove individual points from brush strokes ──
+    for (const anno of annotations.value) {
+      if (anno.type === 'brush') {
+        const newStrokes = []
+        for (const stroke of anno.coordinates) {
+          // Split stroke: keep segments outside the eraser radius
+          let segment = []
+          for (const pt of stroke.points) {
+            const dist = Math.sqrt((pt[0] - ptr.x) ** 2 + (pt[1] - ptr.y) ** 2)
+            if (dist < radius) {
+              // Point is inside eraser — break the stroke here
+              if (segment.length >= 2) {
+                newStrokes.push({ points: segment, size: stroke.size })
+              }
+              segment = []
+              changed = true
+            } else {
+              segment.push(pt)
+            }
+          }
+          if (segment.length >= 2) {
+            newStrokes.push({ points: segment, size: stroke.size })
+          } else if (segment.length < stroke.points.length) {
+            changed = true
+          }
+        }
+        anno.coordinates = newStrokes
+      } else if (anno.type === 'polygon') {
+        // For polygons in pixel mode: remove vertices within radius
+        const before = anno.coordinates.length
+        anno.coordinates = anno.coordinates.filter(([px, py]) =>
+          Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2) >= radius
+        )
+        if (anno.coordinates.length !== before) changed = true
+      }
+    }
+    // Delete point annotations within eraser radius
+    for (let ai = annotations.value.length - 1; ai >= 0; ai--) {
+      if (annotations.value[ai].type === 'point') {
+        const [px, py] = annotations.value[ai].coordinates
+        if (Math.sqrt((px - ptr.x) ** 2 + (py - ptr.y) ** 2) < radius) {
+          annotations.value.splice(ai, 1)
+          changed = true
+        }
+      }
+    }
+  }
+
+  if (changed) {
+    renderAllAnnotations()
+    updateEraserCursor(ptr)
+  }
 }
 
 // Brush: Fabric's free drawing produces a Path on 'path:created'
+// 落笔→停笔→首尾闭合，生成封闭多边形
 function onPathCreated(e) {
-  if (currentTool.value !== 'brush' || !activeLabel.value) return
+  if (currentTool.value !== 'brush') return
   const path = e.path
-  fc.remove(path)  // replace with our polyline
+  fc.remove(path)
 
   // Extract sampled points from SVG path commands
   const points = []
@@ -745,21 +1679,196 @@ function onPathCreated(e) {
     if (cmd[0] === 'M' || cmd[0] === 'L') {
       points.push([Math.round(cmd[1]), Math.round(cmd[2])])
     } else if (cmd[0] === 'Q') {
-      // Quadratic bezier → use endpoint
       points.push([Math.round(cmd[3]), Math.round(cmd[4])])
     }
   }
-  if (points.length < 2) { fc.renderAll(); return }
+  if (points.length < 3) { fc.renderAll(); return }
 
+  // Simplify to reduce noise, then store as closed polygon
+  const simplified = simplifyPolygon(points, 3)
   addAnnotation({
-    type:        'brush',
-    coordinates: [{ points, size: brushSize.value }]
+    type:        'polygon',
+    coordinates: simplified
   })
 }
 
+// ── SAM tool ──────────────────────────────────────────────────────────────────
+
+function setSamMode(mode) {
+  samMode.value = mode
+  samClear()
+}
+
+function updateSamPointObjects() {
+  if (!fc) return
+  const scale = fc.viewportTransform?.[0]
+  if (!scale || scale <= 0) return
+  const r = 8 / scale
+  fc.forEachObject(o => {
+    if (o._isSamPoint) {
+      o.set({ radius: r, left: o._samX - r, top: o._samY - r })
+      o.setCoords()
+    }
+  })
+}
+
+function renderSamOverlay() {
+  if (!fc) return
+  // Remove old SAM objects
+  fc.getObjects().filter(o => o._isSamPreview || o._isSamPoint || o._isSamBox).forEach(o => fc.remove(o))
+
+  const scale = fc.viewportTransform?.[0] ?? 0.01
+  const r = 8 / scale
+
+  // Draw box prompt (yellow dashed rectangle)
+  if (samBox.value) {
+    const { x1, y1, x2, y2 } = samBox.value
+    fc.add(new fabric.Rect({
+      left: x1, top: y1, width: x2 - x1, height: y2 - y1,
+      fill: 'rgba(255,193,7,0.08)',
+      stroke: '#ffc107',
+      strokeWidth: 2 / scale,
+      strokeDashArray: [8 / scale, 4 / scale],
+      strokeUniform: true,
+      selectable: false, evented: false,
+      _isSamBox: true
+    }))
+  }
+
+  // Draw SAM prompt points: green = fg (label=1), red = bg (label=0)
+  for (const pt of samPoints.value) {
+    const color = pt.label === 1 ? '#4caf50' : '#f44336'
+    fc.add(new fabric.Circle({
+      left: pt.x - r, top: pt.y - r, radius: r,
+      fill: color, stroke: '#ffffff', strokeWidth: 2,
+      strokeUniform: true, selectable: false, evented: false,
+      _isSamPoint: true, _samX: pt.x, _samY: pt.y
+    }))
+  }
+
+  // Draw preview polygons
+  if (samPreview.value) {
+    for (const poly of samPreview.value.polygons) {
+      if (poly.length < 3) continue
+      fc.add(new fabric.Polygon(
+        poly.map(([x, y]) => ({ x, y })),
+        {
+          fill: 'rgba(0,200,255,0.18)',
+          stroke: '#00c8ff',
+          strokeWidth: 2,
+          strokeUniform: true,
+          selectable: false, evented: false,
+          _isSamPreview: true
+        }
+      ))
+    }
+  }
+
+  fc.renderAll()
+}
+
+function samClear() {
+  samPoints.value = []
+  samPreview.value = null
+  samBox.value = null
+  samBoxStart = null
+  samIsDragging = false
+  if (fc) {
+    fc.getObjects().filter(o => o._isSamPreview || o._isSamPoint || o._isSamBox).forEach(o => fc.remove(o))
+    fc.renderAll()
+  }
+}
+
+async function onSamDown(ptr, button = 0) {
+  if (samLoading.value) return
+  if (samMode.value === 'box') {
+    // Start box drag — do not predict yet
+    samBoxStart = { x: ptr.x, y: ptr.y }
+    samIsDragging = true
+    return
+  }
+  // Point mode: left-click = fg (1), right-click = bg (0)
+  const label = button === 2 ? 0 : 1
+  samPoints.value.push({ x: Math.round(ptr.x), y: Math.round(ptr.y), label })
+  renderSamOverlay()
+  await runSamPredict()
+}
+
+function onSamMove(ptr) {
+  if (!samIsDragging || !samBoxStart) return
+  const x1 = Math.min(samBoxStart.x, ptr.x)
+  const y1 = Math.min(samBoxStart.y, ptr.y)
+  const x2 = Math.max(samBoxStart.x, ptr.x)
+  const y2 = Math.max(samBoxStart.y, ptr.y)
+  samBox.value = { x1: Math.round(x1), y1: Math.round(y1), x2: Math.round(x2), y2: Math.round(y2) }
+  renderSamOverlay()
+}
+
+async function onSamUp(_ptr) {
+  if (!samIsDragging) return
+  samIsDragging = false
+  samBoxStart = null
+  if (!samBox.value) return
+  const { x1, y1, x2, y2 } = samBox.value
+  // Ignore tiny accidental drags (< 10px)
+  if ((x2 - x1) < 10 || (y2 - y1) < 10) {
+    samBox.value = null
+    return
+  }
+  await runSamPredict()
+}
+
+async function runSamPredict() {
+  if (samLoading.value) return
+  samLoading.value = true
+  samPreview.value = null
+  try {
+    const payload = {
+      points: samPoints.value.map(p => [p.x, p.y]),
+      point_labels: samPoints.value.map(p => p.label)
+    }
+    if (samBox.value) {
+      const { x1, y1, x2, y2 } = samBox.value
+      payload.box = [x1, y1, x2, y2]
+    }
+    const res = await samApi.predict(slideId, payload)
+    samPreview.value = res.data
+    renderSamOverlay()
+  } catch {
+    ElMessage.error('SAM 推理失败，请确认 SAM 服务已启动')
+    samClear()
+  } finally {
+    samLoading.value = false
+  }
+}
+
+function samAccept() {
+  if (!samPreview.value?.polygons?.length) { samReject(); return }
+  // Pick the polygon with the most vertices (outer boundary)
+  const best = samPreview.value.polygons.reduce((a, b) => a.length >= b.length ? a : b)
+  const coords = best.map(([x, y]) => [Math.round(x), Math.round(y)])
+  samClear()
+  addAnnotation({ type: 'polygon', coordinates: coords })
+}
+
+function samReject() {
+  samClear()
+}
+
 // ── Annotation CRUD ───────────────────────────────────────────────────────────
-function addAnnotation(data) {
-  if (!activeLabel.value) { ElMessage.warning('请先选择一个标签'); return }
+async function addAnnotation(data) {
+  // Auto-create a label locally if none is active
+  if (!activeLabel.value) {
+    const color = labelPanelRef.value?.newColor ?? nextAutoColor()
+    const name  = `未命名标签${labels.value.length + 1}`
+    const newLabel = { id: --tempLabelIdCtr, name, color }
+    labels.value.push(newLabel)
+    activeLabelId.value = newLabel.id
+    // Trigger inline edit so user can rename immediately
+    pendingEditLabelId.value = newLabel.id
+    nextTick(() => { pendingEditLabelId.value = null })
+  }
+
   const anno = {
     id:          null,
     _localId:    `local_${++localIdCtr}`,
@@ -789,7 +1898,7 @@ async function deleteAnnotation(annoId) {
   // 若该标签下已无任何标注，自动删除左侧标签
   if (deletedLabelId && !annotations.value.some(a => a.labelId === deletedLabelId)) {
     try {
-      await annotationApi.deleteLabel(deletedLabelId)
+      if (deletedLabelId > 0) await annotationApi.deleteLabel(deletedLabelId)
     } catch { /* 忽略服务端错误，本地也要清除 */ }
     labels.value = labels.value.filter(l => l.id !== deletedLabelId)
     if (activeLabelId.value === deletedLabelId) {
@@ -801,7 +1910,7 @@ async function deleteAnnotation(annoId) {
 // ── Undo / redo ───────────────────────────────────────────────────────────────
 function pushHistory() {
   history.value = history.value.slice(0, historyIndex.value + 1)
-  history.value.push(deepClone(annotations.value))
+  history.value.push({ annotations: deepClone(annotations.value), labels: deepClone(labels.value) })
   if (history.value.length > MAX_HISTORY + 1) history.value.shift()
   historyIndex.value = history.value.length - 1
 }
@@ -819,7 +1928,13 @@ function redo() {
 }
 
 function restoreHistory() {
-  annotations.value = deepClone(history.value[historyIndex.value])
+  const snapshot = history.value[historyIndex.value]
+  annotations.value = deepClone(snapshot.annotations)
+  labels.value = deepClone(snapshot.labels)
+  // Keep active label valid
+  if (activeLabelId.value && !labels.value.some(l => l.id === activeLabelId.value)) {
+    activeLabelId.value = labels.value[0]?.id ?? null
+  }
   renderAllAnnotations()
   isDirty.value = true
 }
@@ -829,6 +1944,35 @@ async function saveAnnotations() {
   if (saving.value) return
   saving.value = true
   try {
+    // 1. Persist any local-only labels (negative id) to the server
+    const idMap = {}  // tempId → realId
+    for (const label of labels.value) {
+      if (label.id < 0) {
+        const res = await annotationApi.createLabel(slideId, { name: label.name, color: label.color })
+        const realLabel = res.data
+        idMap[label.id] = realLabel.id
+        label.id = realLabel.id
+      }
+    }
+    // Also update any renamed labels that are already persisted
+    for (const label of labels.value) {
+      if (label._dirty) {
+        await annotationApi.updateLabel(label.id, { name: label.name, color: label.color })
+        delete label._dirty
+      }
+    }
+    // 2. Remap temp labelIds in annotations
+    for (const anno of annotations.value) {
+      if (idMap[anno.labelId] != null) {
+        anno.labelId = idMap[anno.labelId]
+      }
+    }
+    // Update activeLabelId if it was a temp id
+    if (idMap[activeLabelId.value] != null) {
+      activeLabelId.value = idMap[activeLabelId.value]
+    }
+
+    // 3. Save annotations batch
     const payload = annotations.value.map(a => ({
       id:          a.id ?? null,
       annoType:    a.type,
@@ -856,7 +2000,7 @@ async function markDone() {
   if (isDirty.value) {
     await saveAnnotations()
   }
-  const isResubmit = slide.value?.reviewStatus === 'REJECTED'
+  const isResubmit = slide.value?.reviewStatus === 'REJECTED' || slide.value?.reviewStatus === 'APPROVED'
   try {
     await ElMessageBox.confirm(
       isResubmit ? '确认重新提交该切片进行审核？' : '确认提交该切片进行审核？提交后审核者将收到审核请求。',
@@ -915,13 +2059,35 @@ async function handleRejectPrompt() {
 }
 
 // ── Label CRUD ────────────────────────────────────────────────────────────────
-async function onAddLabel({ name, color }) {
-  try {
-    const res      = await annotationApi.createLabel(slideId, { name, color })
-    const newLabel = res.data
-    labels.value.push(newLabel)
-    activeLabelId.value = newLabel.id
-  } catch { /* handled */ }
+function onAddLabel({ name, color }) {
+  const newLabel = { id: --tempLabelIdCtr, name, color }
+  labels.value.push(newLabel)
+  activeLabelId.value = newLabel.id
+  isDirty.value = true
+}
+
+function onRenameLabel({ id, name }) {
+  const label = labels.value.find(l => l.id === id)
+  if (label) {
+    label.name = name
+    label._dirty = true
+  }
+  isDirty.value = true
+}
+
+function onColorChangeLabel({ id, color }) {
+  const label = labels.value.find(l => l.id === id)
+  if (!label) return
+  label.color = color
+  label._dirty = true
+  // Update labelColor on all annotations belonging to this label
+  for (const anno of annotations.value) {
+    if (anno.labelId === id) {
+      anno.labelColor = color
+    }
+  }
+  isDirty.value = true
+  renderAllAnnotations()
 }
 
 async function onDeleteLabel(labelId) {
@@ -936,7 +2102,8 @@ async function onDeleteLabel(labelId) {
     } catch { return }
   }
   try {
-    await annotationApi.deleteLabel(labelId)
+    // Only call server delete for persisted labels (positive id)
+    if (labelId > 0) await annotationApi.deleteLabel(labelId)
     labels.value = labels.value.filter(l => l.id !== labelId)
     if (activeLabelId.value === labelId) {
       activeLabelId.value = labels.value[0]?.id ?? null
@@ -985,7 +2152,7 @@ async function onCtxChangeLabel(newLabelId) {
   activeLabelId.value = newLabelId
   renderAllAnnotations()
   if (oldLabelId && !annotations.value.some(a => a.labelId === oldLabelId)) {
-    try { await annotationApi.deleteLabel(oldLabelId) } catch {}
+    try { if (oldLabelId > 0) await annotationApi.deleteLabel(oldLabelId) } catch {}
     labels.value = labels.value.filter(l => l.id !== oldLabelId)
     if (activeLabelId.value === oldLabelId) activeLabelId.value = labels.value[0]?.id ?? null
   }
@@ -995,11 +2162,7 @@ async function onCtxChangeLabel(newLabelId) {
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 function onKeyDown(e) {
-  // Ignore when typing in an input / textarea
-  const tag = document.activeElement?.tagName
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return
-
-  // Ctrl combos
+  // Ctrl combos — always handle, even when focus is in an input/slider
   if (e.ctrlKey) {
     if (e.key === 'z') { e.preventDefault(); undo();             return }
     if (e.key === 'y') { e.preventDefault(); redo();             return }
@@ -1007,9 +2170,12 @@ function onKeyDown(e) {
     return
   }
 
+  // Ignore when typing in an input / textarea
+  const tag = document.activeElement?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
   // Escape
   if (e.key === 'Escape') {
-    if (currentTool.value === 'polygon') { cancelPolygon(); return }
     setTool('pan')
     return
   }
@@ -1020,13 +2186,23 @@ function onKeyDown(e) {
     if (active?._annoId) { deleteAnnotation(active._annoId); return }
   }
 
+  // WASD / Arrow keys — canvas panning (check before tool shortcuts)
+  if (viewer) {
+    const k = e.key.toLowerCase()
+    if (k === 'a' || e.key === 'ArrowLeft')  { e.preventDefault(); viewer.viewport.panBy(new OpenSeadragon.Point(-0.05, 0));  return }
+    if (k === 'd' || e.key === 'ArrowRight') { e.preventDefault(); viewer.viewport.panBy(new OpenSeadragon.Point(0.05, 0));   return }
+    if (k === 'w' || e.key === 'ArrowUp')    { e.preventDefault(); viewer.viewport.panBy(new OpenSeadragon.Point(0, -0.05));  return }
+    if (k === 's' || e.key === 'ArrowDown')  { e.preventDefault(); viewer.viewport.panBy(new OpenSeadragon.Point(0, 0.05));   return }
+  }
+
   // Tool shortcuts (single key, no modifiers)
   switch (e.key.toLowerCase()) {
     case 'v': setTool('pan');     return
-    case 's': setTool('select');  return
     case 'b': setTool('brush');   return
-    case 'r': setTool('rect');    return
-    case 'p': setTool('polygon'); return
+    case 'n': setTool('nudge');   return
+    case 'e': setTool('eraser');  return
+    case 'p': setTool('point');   return
+    case 'm': setTool('sam');     return
   }
 
   // Viewer navigation
@@ -1035,15 +2211,31 @@ function onKeyDown(e) {
     case '+': case '=': e.preventDefault(); zoomIn();  break
     case '-':           e.preventDefault(); zoomOut(); break
     case 'h': case 'H': e.preventDefault(); zoomFit(); break
-    case 'ArrowLeft':  e.preventDefault(); viewer.viewport.panBy(new OpenSeadragon.Point(-0.05, 0));  break
-    case 'ArrowRight': e.preventDefault(); viewer.viewport.panBy(new OpenSeadragon.Point(0.05, 0));   break
-    case 'ArrowUp':    e.preventDefault(); viewer.viewport.panBy(new OpenSeadragon.Point(0, -0.05));  break
-    case 'ArrowDown':  e.preventDefault(); viewer.viewport.panBy(new OpenSeadragon.Point(0, 0.05));   break
+    case '?':           e.preventDefault(); showShortcutHelp.value = true; break
   }
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-function goBack() {
+async function goBack() {
+  if (isDirty.value) {
+    try {
+      await ElMessageBox.confirm(
+        '当前标注尚未保存，是否保存后再离开？',
+        '未保存的更改',
+        {
+          type: 'warning',
+          confirmButtonText: '保存并离开',
+          cancelButtonText: '不保存',
+          distinguishCancelAndClose: true,
+        }
+      )
+      // User clicked "保存并离开"
+      await saveAnnotations()
+    } catch (action) {
+      if (action === 'close') return   // clicked X, stay on page
+      // action === 'cancel' → "不保存", discard and leave
+    }
+  }
   if (slide.value?.workspaceId) {
     router.push({ name: 'fileBrowser', params: { id: slide.value.workspaceId } })
   } else {
@@ -1057,6 +2249,18 @@ function zoomOut() { viewer?.viewport.zoomBy(0.5) }
 function zoomFit() { viewer?.viewport.goHome() }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+const AUTO_COLORS = [
+  '#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4',
+  '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990',
+  '#dcbeff', '#9a6324', '#800000', '#aaffc3', '#808000',
+  '#ffd8b1', '#000075', '#a9a9a9'
+]
+let autoColorIdx = 0
+
+function nextAutoColor() {
+  return AUTO_COLORS[autoColorIdx++ % AUTO_COLORS.length]
+}
+
 function hexToRgba(hex, alpha) {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   if (!m) return `rgba(255,0,0,${alpha})`
@@ -1142,6 +2346,65 @@ function normalizeAnno(a) {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* ── Right floating dock ──────────────────────────────────────── */
+.right-dock {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(20, 20, 20, 0.82);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 8px 5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+.dock-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #bbb;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dock-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.dock-divider {
+  width: 18px;
+  height: 1px;
+  background: rgba(255,255,255,0.12);
+  margin: 2px 0;
+}
+
+/* NotificationBell inside dock */
+.right-dock :deep(.el-button.is-circle) {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: #bbb;
+}
+.right-dock :deep(.el-button.is-circle:hover) {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
 }
 
 .zoom-badge {
@@ -1255,6 +2518,40 @@ function normalizeAnno(a) {
   white-space: nowrap;
 }
 
+/* ── SAM action bar ───────────────────────────────────────────────── */
+.sam-action-bar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: rgba(20, 20, 30, 0.92);
+  border: 1px solid #00c8ff55;
+  border-radius: 20px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 12px rgba(0,200,255,0.15);
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.sam-status-text {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.sam-fade-enter-active,
+.sam-fade-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+.sam-fade-enter-from,
+.sam-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px);
+}
+
 /* ── Coordinate bar ───────────────────────────────────────────────── */
 .coord-bar {
   display: flex;
@@ -1282,6 +2579,116 @@ function normalizeAnno(a) {
   color: #555;
   margin-left: auto;
   font-size: 11px;
+}
+
+/* ── Shortcut help dialog ──────────────────────────────────────── */
+.shortcut-help-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.shortcut-help-grid .shortcut-group:last-child {
+  grid-column: 1 / -1;
+}
+.shortcut-group h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding-bottom: 4px;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.shortcut-row kbd {
+  display: inline-block;
+  min-width: 28px;
+  padding: 2px 7px;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: center;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 var(--el-border-color-lighter);
+}
+.shortcut-row span {
+  color: var(--el-text-color-regular);
+}
+
+/* ── Ghost comparison badge ───────────────────────────────────────── */
+.ghost-badge {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: rgba(20, 12, 0, 0.92);
+  border: 1px solid rgba(255, 140, 0, 0.5);
+  border-radius: 20px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 12px rgba(255, 140, 0, 0.2);
+  z-index: 10;
+  white-space: nowrap;
+}
+.ghost-badge-text {
+  font-size: 13px;
+  color: #ffc04d;
+  font-weight: 500;
+}
+.ghost-close-btn {
+  border-color: rgba(255, 140, 0, 0.4) !important;
+  color: #ffc04d !important;
+  background: transparent !important;
+}
+.ghost-close-btn:hover {
+  background: rgba(255, 140, 0, 0.12) !important;
+}
+
+/* ── Version history drawer ─────────────────────────────────────── */
+.ver-loading,
+.ver-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 40px 0;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+}
+.ver-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ver-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ver-num {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.ver-compare-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.ver-comment {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  border-left: 3px solid var(--el-color-danger-light-5);
+  padding: 4px 8px;
+  border-radius: 0 4px 4px 0;
+  font-style: italic;
 }
 </style>
 

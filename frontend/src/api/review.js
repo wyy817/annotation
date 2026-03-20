@@ -14,5 +14,8 @@ export const reviewApi = {
   reject: (slideId, comment) => http.patch(`/reviews/${slideId}/reject`, { comment }),
 
   /** List annotators with progress stats */
-  getAnnotators: () => http.get('/users/annotators')
+  getAnnotators: () => http.get('/users/annotators'),
+
+  /** Update annotator remark */
+  updateAnnotatorRemark: (userId, remark) => http.put(`/users/${userId}/remark`, { remark })
 }

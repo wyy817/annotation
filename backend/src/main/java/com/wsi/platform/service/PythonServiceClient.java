@@ -73,6 +73,24 @@ public class PythonServiceClient {
         @JsonProperty("patch_count") private int patchCount;
     }
 
+    @Data
+    public static class SamPredictRequest {
+        @JsonProperty("slide_id")   private long slideId;
+        @JsonProperty("file_path")  private String filePath;
+        private int level = 0;
+        private List<List<Double>> points = List.of();
+        @JsonProperty("point_labels") private List<Integer> pointLabels = List.of();
+        private List<Double> box;                // nullable: [x1,y1,x2,y2]
+        @JsonProperty("patch_size") private int patchSize = 1024;
+    }
+
+    @Data
+    public static class SamPredictResponse {
+        private List<List<List<Double>>> polygons; // contours in level-0 WSI coords
+        private double score;
+        @JsonProperty("mask_b64") private String maskB64;
+    }
+
     // ── API calls ────────────────────────────────────────────────────────────
 
     /** Generate DeepZoom tiles + thumbnail for a slide. Blocking. */
@@ -114,5 +132,13 @@ public class PythonServiceClient {
         req.setPatchSize(patchSize);
         log.info("POST {} slideId={} annCount={}", url, slideId, annotations.size());
         return restTemplate.postForObject(url, req, ExtractPatchesResponse.class);
+    }
+
+    /** Run SAM/MobileSAM inference on a WSI region. Blocking. */
+    public SamPredictResponse samPredict(SamPredictRequest req) {
+        String url = props.getPythonService().getBaseUrl() + "/internal/sam/predict";
+        log.info("POST {} slideId={} points={} hasBox={}", url, req.getSlideId(),
+                req.getPoints().size(), req.getBox() != null);
+        return restTemplate.postForObject(url, req, SamPredictResponse.class);
     }
 }

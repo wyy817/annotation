@@ -25,7 +25,7 @@ public class Slide {
     /** Path to the generated thumbnail image */
     private String thumbnailPath;
 
-    /** File format: PNG, JPG, SVS */
+    /** File format: PNG, JPG, SVS, NDPI, TIFF, MRXS, SCN, etc. */
     private String format;
 
     private Long fileSize;

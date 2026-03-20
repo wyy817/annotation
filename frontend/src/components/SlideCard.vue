@@ -1,6 +1,10 @@
 <template>
   <!-- Grid card -->
-  <div v-if="viewMode === 'grid'" class="slide-card" @click="$emit('open', slide)">
+  <div v-if="viewMode === 'grid'" class="slide-card" :class="{ 'is-selected': selected }" @click="$emit('open', slide)">
+    <!-- Checkbox -->
+    <div v-if="selectable" class="card-checkbox" @click.stop>
+      <el-checkbox :model-value="selected" @change="$emit('toggle-select', slide)" />
+    </div>
     <!-- Thumbnail -->
     <div class="thumb-wrap">
       <img
@@ -47,7 +51,10 @@
   </div>
 
   <!-- List row -->
-  <div v-else class="slide-row" @click="$emit('open', slide)">
+  <div v-else class="slide-row" :class="{ 'is-selected': selected, 'has-checkbox': selectable }" @click="$emit('open', slide)">
+    <div v-if="selectable" class="row-checkbox" @click.stop>
+      <el-checkbox :model-value="selected" @change="$emit('toggle-select', slide)" />
+    </div>
     <div class="row-thumb">
       <img
         v-if="slide.status === 'READY'"
@@ -91,10 +98,12 @@ import { Loading, WarningFilled, Picture, MoreFilled } from '@element-plus/icons
 
 const props = defineProps({
   slide: { type: Object, required: true },
-  viewMode: { type: String, default: 'grid' } // 'grid' | 'list'
+  viewMode: { type: String, default: 'grid' }, // 'grid' | 'list'
+  selectable: { type: Boolean, default: false },
+  selected: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['open', 'move', 'delete'])
+const emit = defineEmits(['open', 'move', 'delete', 'toggle-select'])
 
 function handleCommand(cmd) {
   if (cmd === 'open') emit('open', props.slide)
@@ -193,6 +202,19 @@ function formatSize(bytes) {
   color: #909399;
 }
 
+.card-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  background: rgba(255,255,255,0.85);
+  border-radius: 4px;
+  padding: 2px;
+}
+.slide-card.is-selected {
+  outline: 2px solid #409eff;
+}
+
 .card-actions {
   position: absolute;
   top: 8px;
@@ -211,6 +233,14 @@ function formatSize(bytes) {
 }
 
 /* ── List row ── */
+.row-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slide-row.is-selected {
+  background: #ecf5ff;
+}
 .slide-row {
   display: grid;
   grid-template-columns: 56px 1fr 60px 80px 90px 90px 90px 40px;
@@ -221,6 +251,9 @@ function formatSize(bytes) {
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
   transition: background 0.15s;
+}
+.slide-row.has-checkbox {
+  grid-template-columns: 32px 56px 1fr 60px 80px 90px 90px 90px 40px;
 }
 .slide-row:hover {
   background: #f5f7fa;

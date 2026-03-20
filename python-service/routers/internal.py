@@ -29,6 +29,21 @@ import threading
 from pathlib import Path
 from typing import Any
 
+# On Windows, load openslide-bin DLLs before any openslide import to avoid
+# libtiff.dll ordinal conflicts with the conda environment's tiff.dll.
+if os.name == "nt":
+    try:
+        import openslide
+        if hasattr(openslide, "_load_library"):
+            openslide._load_library()
+    except Exception:
+        pass
+    try:
+        import openslide_bin  # type: ignore
+        os.add_dll_directory(str(Path(openslide_bin.__file__).parent))
+    except Exception:
+        pass
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -188,10 +203,19 @@ def _get_sam_predictor():
     return _sam_predictor
 
 
+# ── Supported formats ─────────────────────────────────────────────────────────
+
+# Extensions handled by OpenSlide (multi-resolution WSI formats)
+OPENSLIDE_EXTS = {".svs", ".ndpi", ".tiff", ".tif", ".mrxs", ".scn", ".bif", ".vms", ".vmu"}
+
+# Extensions handled by Pillow (plain raster images)
+STANDARD_EXTS = {".png", ".jpg", ".jpeg"}
+
+
 # ── Tile generation ───────────────────────────────────────────────────────────
 
-def _gen_tiles_svs(file_path: str, slide_id: int, tile_size: int):
-    """DeepZoom tiles for SVS via OpenSlide."""
+def _gen_tiles_openslide(file_path: str, slide_id: int, tile_size: int):
+    """DeepZoom tiles for any OpenSlide-supported WSI format."""
     from openslide import OpenSlide
     from openslide.deepzoom import DeepZoomGenerator
 
@@ -417,7 +441,7 @@ def _annotation_bbox(ann: dict) -> tuple[int, int, int, int] | None:
     return None
 
 
-def _read_region_svs(file_path: str, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
+def _read_region_openslide(file_path: str, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
     from openslide import OpenSlide
     slide = OpenSlide(file_path)
     try:
@@ -437,10 +461,10 @@ def process_slide(req: ProcessSlideRequest):
 
     try:
         ext = Path(req.file_path).suffix.lower()
-        if ext == ".svs":
-            width, height, max_zoom, tile_dir, thumb = _gen_tiles_svs(
+        if ext in OPENSLIDE_EXTS:
+            width, height, max_zoom, tile_dir, thumb = _gen_tiles_openslide(
                 req.file_path, req.slide_id, req.tile_size)
-        elif ext in (".png", ".jpg", ".jpeg"):
+        elif ext in STANDARD_EXTS:
             width, height, max_zoom, tile_dir, thumb = _gen_tiles_standard(
                 req.file_path, req.slide_id, req.tile_size)
         else:
@@ -536,12 +560,12 @@ def extract_patches(req: ExtractPatchesRequest):
         raise HTTPException(status_code=404, detail=f"File not found: {req.file_path}")
 
     ext = Path(req.file_path).suffix.lower()
-    is_svs = ext == ".svs"
+    is_openslide = ext in OPENSLIDE_EXTS
 
-    # For standard images, load once; for SVS, read per-region
+    # For standard images, load once; for OpenSlide formats, read per-region
     img_standard: np.ndarray | None = None
     img_h = img_w = 0
-    if not is_svs:
+    if not is_openslide:
         img_standard = cv2.imread(req.file_path, cv2.IMREAD_COLOR)
         if img_standard is None:
             raise HTTPException(status_code=500, detail="cv2 failed to open image")
@@ -568,8 +592,8 @@ def extract_patches(req: ExtractPatchesRequest):
             continue
 
         try:
-            if is_svs:
-                patch = _read_region_svs(req.file_path, x1, y1, x2, y2)
+            if is_openslide:
+                patch = _read_region_openslide(req.file_path, x1, y1, x2, y2)
             else:
                 patch = img_standard[y1:y2, x1:x2]
 
@@ -619,7 +643,7 @@ def sam_predict(req: SamPredictRequest):
                             detail=f"File not found: {req.file_path}")
 
     ext = Path(req.file_path).suffix.lower()
-    is_svs = ext == ".svs"
+    is_openslide = ext in OPENSLIDE_EXTS
 
     try:
         import torch
@@ -635,7 +659,7 @@ def sam_predict(req: SamPredictRequest):
             center_y = float(np.mean(pts_arr[:, 1]))
 
         # ── Step 2: extract image region ───────────────────────────────────────
-        if is_svs:
+        if is_openslide:
             from openslide import OpenSlide
             slide = OpenSlide(req.file_path)
             try:

@@ -19,12 +19,12 @@
     >
       <el-icon class="drop-icon"><Upload /></el-icon>
       <p class="drop-text">点击或拖拽文件到此区域</p>
-      <p class="drop-hint">支持 PNG、JPG、SVS，或 .zip / .tar.gz 压缩包</p>
+      <p class="drop-hint">支持 PNG、JPG、SVS、NDPI、TIFF、MRXS、SCN 等，或 .zip / .tar.gz 压缩包</p>
       <input
         ref="fileInputRef"
         type="file"
         multiple
-        accept=".png,.jpg,.jpeg,.svs,.zip,.tar.gz,.tgz"
+        accept=".png,.jpg,.jpeg,.svs,.ndpi,.tiff,.tif,.mrxs,.scn,.bif,.vms,.vmu,.zip,.tar.gz,.tgz"
         style="display:none"
         @change="onFileChange"
       />
