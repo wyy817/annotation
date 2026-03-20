@@ -21,6 +21,9 @@ public class User {
     /** ANNOTATOR | REVIEWER */
     private String role;
 
+    /** PENDING | ACTIVE | DISABLED */
+    private String status;
+
     private String remark;
 
     @TableField(fill = FieldFill.INSERT)

@@ -13,6 +13,7 @@
           {{ userStore.user?.username }}
         </span>
         <NotificationBell />
+        <el-button size="small" @click="$router.push({ name: 'admin' })">用户管理</el-button>
         <el-button size="small" @click="handleLogout">退出登录</el-button>
       </div>
     </header>

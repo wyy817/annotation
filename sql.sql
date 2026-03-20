@@ -93,6 +93,12 @@ CREATE INDEX IF NOT EXISTS idx_slides_annotator_id  ON slides(annotator_id);
 -- V3: Add remark field for annotator notes
 ALTER TABLE users ADD COLUMN IF NOT EXISTS remark TEXT;
 
+-- V3 (phase 3): User status for admin approval workflow
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+-- status values: PENDING | ACTIVE | DISABLED
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+
 -- EXPORT FORMAT
 ALTER TABLE export_tasks ADD COLUMN format VARCHAR(32) DEFAULT 'COCO';
 

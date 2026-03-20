@@ -37,17 +37,57 @@ public class UserService {
     }
 
     /**
-     * Verify password and return user if credentials match, null otherwise.
+     * Verify password and return user if credentials match.
+     * Returns null for wrong username/password.
+     * Throws IllegalStateException if account is PENDING or DISABLED.
      */
     public User authenticate(String username, String rawPassword) {
         User user = findByUsername(username);
         if (user == null) return null;
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) return null;
+        if ("PENDING".equals(user.getStatus())) {
+            throw new IllegalStateException("账号待审批，请联系管理员激活");
+        }
+        if ("DISABLED".equals(user.getStatus())) {
+            throw new IllegalStateException("账号已被禁用，请联系管理员");
+        }
         return user;
     }
 
     /**
-     * Create a user (used by DataInitializer).
+     * Register a new user. Validates uniqueness, password match, strength, and role.
+     * Returns the created user, or throws IllegalArgumentException on validation failure.
+     */
+    public User register(String username, String rawPassword, String confirmPassword, String role) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("用户名不能为空");
+        }
+        if (username.length() < 3 || username.length() > 30) {
+            throw new IllegalArgumentException("用户名长度须在 3~30 个字符之间");
+        }
+        if (rawPassword == null || rawPassword.length() < 6) {
+            throw new IllegalArgumentException("密码长度不能少于 6 位");
+        }
+        if (!rawPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("两次输入的密码不一致");
+        }
+        if (!"ANNOTATOR".equals(role) && !"REVIEWER".equals(role)) {
+            throw new IllegalArgumentException("角色只能是 ANNOTATOR 或 REVIEWER");
+        }
+        if (findByUsername(username) != null) {
+            throw new IllegalArgumentException("用户名已存在");
+        }
+        User user = new User();
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        user.setRole(role);
+        user.setStatus("PENDING");
+        userMapper.insert(user);
+        return user;
+    }
+
+    /**
+     * Create a user (used by DataInitializer). Seed accounts are always ACTIVE.
      */
     public User createIfAbsent(String username, String rawPassword, String role) {
         User existing = findByUsername(username);
@@ -56,7 +96,35 @@ public class UserService {
         user.setUsername(username);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setRole(role);
+        user.setStatus("ACTIVE");
         userMapper.insert(user);
         return user;
+    }
+
+    public List<User> listPendingUsers() {
+        return userMapper.selectList(
+                new LambdaQueryWrapper<User>()
+                        .eq(User::getStatus, "PENDING")
+                        .orderByAsc(User::getCreatedAt));
+    }
+
+    public List<User> listAllUsers() {
+        return userMapper.selectList(
+                new LambdaQueryWrapper<User>()
+                        .orderByAsc(User::getCreatedAt));
+    }
+
+    public void approveUser(Long id) {
+        User user = userMapper.selectById(id);
+        if (user == null) throw new IllegalArgumentException("用户不存在");
+        user.setStatus("ACTIVE");
+        userMapper.updateById(user);
+    }
+
+    public void disableUser(Long id) {
+        User user = userMapper.selectById(id);
+        if (user == null) throw new IllegalArgumentException("用户不存在");
+        user.setStatus("DISABLED");
+        userMapper.updateById(user);
     }
 }

@@ -28,9 +28,32 @@ public class AuthController {
         private String password;
     }
 
+    @Data
+    static class RegisterRequest {
+        private String username;
+        private String password;
+        private String confirmPassword;
+        private String role;
+    }
+
+    @PostMapping("/api/auth/register")
+    public Result<String> register(@RequestBody RegisterRequest req) {
+        try {
+            userService.register(req.getUsername(), req.getPassword(), req.getConfirmPassword(), req.getRole());
+            return Result.success("注册成功，请登录");
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        }
+    }
+
     @PostMapping("/api/auth/login")
     public Result<Map<String, Object>> login(@RequestBody LoginRequest req) {
-        User user = userService.authenticate(req.getUsername(), req.getPassword());
+        User user;
+        try {
+            user = userService.authenticate(req.getUsername(), req.getPassword());
+        } catch (IllegalStateException e) {
+            return Result.error(403, e.getMessage());
+        }
         if (user == null) {
             return Result.error(401, "用户名或密码错误");
         }

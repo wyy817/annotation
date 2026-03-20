@@ -38,6 +38,9 @@
           登录
         </el-button>
       </el-form>
+      <div class="register-link">
+        没有账号？<router-link :to="{ name: 'register' }">立即注册</router-link>
+      </div>
     </div>
   </div>
 </template>
@@ -109,5 +112,21 @@ async function handleLogin() {
 .subtitle {
   font-size: 13px;
   color: #909399;
+}
+
+.register-link {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 13px;
+  color: #909399;
+}
+
+.register-link a {
+  color: #409eff;
+  text-decoration: none;
+}
+
+.register-link a:hover {
+  text-decoration: underline;
 }
 </style>
