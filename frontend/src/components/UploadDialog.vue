@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="上传图像"
+    :title="$t('upload.title')"
     width="500px"
     :close-on-click-modal="!uploading"
     :close-on-press-escape="!uploading"
@@ -18,8 +18,8 @@
       @click="fileInputRef.click()"
     >
       <el-icon class="drop-icon"><Upload /></el-icon>
-      <p class="drop-text">点击或拖拽文件到此区域</p>
-      <p class="drop-hint">支持 PNG、JPG、SVS、NDPI、TIFF、MRXS、SCN 等，或 .zip / .tar.gz 压缩包</p>
+      <p class="drop-text">{{ $t('upload.dropText') }}</p>
+      <p class="drop-hint">{{ $t('upload.dropHint') }}</p>
       <input
         ref="fileInputRef"
         type="file"
@@ -42,36 +42,36 @@
 
     <!-- Upload progress -->
     <div v-if="uploading" class="progress-wrap">
-      <p class="progress-label">上传中，请勿关闭窗口…</p>
+      <p class="progress-label">{{ $t('upload.uploading') }}</p>
       <el-progress :percentage="uploadPercent" :stroke-width="12" status="striped" striped-flow />
       <p class="progress-hint">{{ uploadPercent }}%</p>
     </div>
 
     <!-- Polling phase -->
     <div v-if="polling" class="progress-wrap">
-      <p class="progress-label">等待服务器处理（瓦片生成）…</p>
+      <p class="progress-label">{{ $t('upload.polling') }}</p>
       <el-progress :percentage="pollPercent" :stroke-width="10" />
-      <p class="progress-hint">{{ readyCount }} / {{ pendingSlides.length }} 就绪</p>
+      <p class="progress-hint">{{ $t('upload.readyCount', { ready: readyCount, total: pendingSlides.length }) }}</p>
     </div>
 
     <!-- Done -->
     <div v-if="done" class="done-wrap">
       <el-icon class="done-icon" style="color:#67c23a"><CircleCheckFilled /></el-icon>
-      <p>已上传 {{ pendingSlides.length }} 个文件</p>
-      <p v-if="errorCount" class="error-hint">{{ errorCount }} 个文件处理失败</p>
+      <p>{{ $t('upload.done', { count: pendingSlides.length }) }}</p>
+      <p v-if="errorCount" class="error-hint">{{ $t('upload.errorCount', { count: errorCount }) }}</p>
     </div>
 
     <template #footer>
-      <el-button v-if="!uploading && !done" @click="visible = false">取消</el-button>
+      <el-button v-if="!uploading && !done" @click="visible = false">{{ $t('common.cancel') }}</el-button>
       <el-button
         v-if="!uploading && !done"
         type="primary"
         :disabled="!selectedFiles.length"
         @click="startUpload"
       >
-        开始上传
+        {{ $t('upload.startUpload') }}
       </el-button>
-      <el-button v-if="done" type="primary" @click="visible = false">完成</el-button>
+      <el-button v-if="done" type="primary" @click="visible = false">{{ $t('upload.finish') }}</el-button>
     </template>
   </el-dialog>
 </template>

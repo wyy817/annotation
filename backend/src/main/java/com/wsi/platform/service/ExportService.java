@@ -1,5 +1,6 @@
 package com.wsi.platform.service;
 
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.entity.ExportTask;
 import com.wsi.platform.entity.Slide;
 import com.wsi.platform.enums.ExportFormat;
@@ -23,6 +24,7 @@ public class ExportService {
     private final SlideMapper slideMapper;
     private final ExportTaskMapper exportTaskMapper;
     private final ExportAsyncService exportAsyncService;
+    private final MessageUtil messageUtil;
 
     /**
      * Create an ExportTask (PENDING) and trigger async processing.
@@ -35,7 +37,7 @@ public class ExportService {
         if (!"READY".equals(slide.getStatus()))
             throw new IllegalStateException("Slide not READY (status=" + slide.getStatus() + ")");
         if (!"APPROVED".equals(slide.getReviewStatus()))
-            throw new IllegalStateException("只有已通过审核（APPROVED）的切片才可以导出");
+            throw new IllegalStateException(messageUtil.msg("error.export.notApproved"));
 
         ExportFormat fmt = ExportFormat.fromString(format);
         ExportTask task = new ExportTask();
@@ -81,7 +83,7 @@ public class ExportService {
         }).toList();
 
         if (eligible.isEmpty())
-            throw new IllegalStateException("没有符合条件的切片（需为已通过审核状态）");
+            throw new IllegalStateException(messageUtil.msg("error.export.noApprovedSlides"));
 
         ExportFormat fmt = ExportFormat.fromString(format);
         ExportTask task = new ExportTask();

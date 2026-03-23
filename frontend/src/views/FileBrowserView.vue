@@ -3,13 +3,14 @@
     <!-- Header -->
     <header class="page-header">
       <div class="header-left">
-        <el-button :icon="ArrowLeft" text @click="router.push('/')">工作空间</el-button>
+        <el-button :icon="ArrowLeft" text @click="router.push('/')">{{ $t('workspace.title') }}</el-button>
         <el-divider direction="vertical" />
         <span class="ws-name">{{ workspace?.name ?? '...' }}</span>
       </div>
       <div class="header-right">
         <NotificationBell />
-        <el-button type="primary" :icon="Upload" @click="showUpload = true">上传图像</el-button>
+        <LangSwitch />
+        <el-button type="primary" :icon="Upload" @click="showUpload = true">{{ $t('fileBrowser.uploadImage') }}</el-button>
       </div>
     </header>
 
@@ -17,32 +18,32 @@
     <div class="toolbar">
       <el-input
         v-model="searchText"
-        placeholder="搜索文件名..."
+        :placeholder="$t('fileBrowser.searchPlaceholder')"
         clearable
         :prefix-icon="Search"
         style="width:220px"
       />
-      <el-select v-model="sortKey" style="width:130px">
-        <el-option label="上传时间↓" value="createdAt_desc" />
-        <el-option label="上传时间↑" value="createdAt_asc" />
-        <el-option label="文件名 A→Z" value="name_asc" />
-        <el-option label="文件名 Z→A" value="name_desc" />
-        <el-option label="文件大小↓" value="size_desc" />
+      <el-select v-model="sortKey" style="width:140px">
+        <el-option :label="$t('fileBrowser.sortTimeDesc')" value="createdAt_desc" />
+        <el-option :label="$t('fileBrowser.sortTimeAsc')" value="createdAt_asc" />
+        <el-option :label="$t('fileBrowser.sortNameAsc')" value="name_asc" />
+        <el-option :label="$t('fileBrowser.sortNameDesc')" value="name_desc" />
+        <el-option :label="$t('fileBrowser.sortSizeDesc')" value="size_desc" />
       </el-select>
 
       <!-- Status filter -->
-      <el-select v-model="filterStatus" clearable placeholder="标注状态" style="width:110px">
-        <el-option label="未标注" value="NOT_STARTED" />
-        <el-option label="标注中" value="IN_PROGRESS" />
-        <el-option label="已完成" value="DONE" />
+      <el-select v-model="filterStatus" clearable :placeholder="$t('fileBrowser.filterAnnoStatus')" style="width:120px">
+        <el-option :label="$t('fileBrowser.annoNotStarted')" value="NOT_STARTED" />
+        <el-option :label="$t('fileBrowser.annoInProgress')" value="IN_PROGRESS" />
+        <el-option :label="$t('fileBrowser.annoDone')" value="DONE" />
       </el-select>
 
       <!-- Review status filter -->
-      <el-select v-model="filterReview" clearable placeholder="审核状态" style="width:110px">
-        <el-option label="未提交" value="NOT_SUBMITTED" />
-        <el-option label="待审核" value="PENDING_REVIEW" />
-        <el-option label="已通过" value="APPROVED" />
-        <el-option label="已拒绝" value="REJECTED" />
+      <el-select v-model="filterReview" clearable :placeholder="$t('fileBrowser.filterReviewStatus')" style="width:120px">
+        <el-option :label="$t('fileBrowser.reviewNotSubmitted')" value="NOT_SUBMITTED" />
+        <el-option :label="$t('fileBrowser.reviewPending')" value="PENDING_REVIEW" />
+        <el-option :label="$t('fileBrowser.reviewApproved')" value="APPROVED" />
+        <el-option :label="$t('fileBrowser.reviewRejected')" value="REJECTED" />
       </el-select>
 
       <div style="flex:1" />
@@ -51,15 +52,15 @@
       <el-button
         :type="selectionMode ? 'warning' : ''"
         @click="toggleSelectionMode"
-      >{{ selectionMode ? '退出选择' : '批量选择' }}</el-button>
+      >{{ selectionMode ? $t('common.exitSelection') : $t('common.batchSelect') }}</el-button>
 
       <!-- Batch export -->
-      <el-tooltip content="导出所有已通过审核的切片" placement="bottom">
+      <el-tooltip :content="$t('fileBrowser.batchExportTooltip')" placement="bottom">
         <el-button
           :icon="Download"
           :disabled="!approvedSlides.length"
           @click="showBatchExport = true"
-        >批量导出 ({{ approvedSlides.length }})</el-button>
+        >{{ $t('fileBrowser.batchExportBtn', { count: approvedSlides.length }) }}</el-button>
       </el-tooltip>
 
       <!-- View toggle -->
@@ -83,20 +84,20 @@
         :model-value="isAllSelected"
         :indeterminate="isIndeterminate"
         @change="toggleSelectAll"
-      >全选</el-checkbox>
-      <span class="batch-info">已选 {{ selectedIds.size }} 项</span>
+      >{{ $t('common.selectAll') }}</el-checkbox>
+      <span class="batch-info">{{ $t('common.selectedCount', { count: selectedIds.size }) }}</span>
       <el-button
         type="primary"
         :icon="Download"
         :disabled="!selectedIds.size"
         @click="handleBatchExportSelected"
-      >下载</el-button>
+      >{{ $t('fileBrowser.download') }}</el-button>
       <el-button
         type="danger"
         :icon="DeleteIcon"
         :disabled="!selectedIds.size"
         @click="handleBatchDeleteClick"
-      >删除</el-button>
+      >{{ $t('common.delete') }}</el-button>
     </div>
 
     <!-- Loading -->
@@ -107,7 +108,7 @@
     <!-- Empty -->
     <el-empty
       v-else-if="!filteredSlides.length"
-      :description="store.slides.length ? '没有匹配的文件' : '还没有图像，点击右上角上传'"
+      :description="store.slides.length ? $t('fileBrowser.emptySearch') : $t('fileBrowser.empty')"
       class="empty-state"
     />
 
@@ -132,12 +133,12 @@
       <div class="list-header" :class="{ 'has-checkbox': selectionMode }">
         <div v-if="selectionMode" style="width:32px"></div>
         <div style="width:56px"></div>
-        <div style="flex:1">文件名</div>
-        <div style="width:60px">格式</div>
-        <div style="width:80px">大小</div>
-        <div style="width:90px">处理状态</div>
-        <div style="width:90px">标注状态</div>
-        <div style="width:90px">审核状态</div>
+        <div style="flex:1">{{ $t('fileBrowser.colFileName') }}</div>
+        <div style="width:60px">{{ $t('fileBrowser.colFormat') }}</div>
+        <div style="width:80px">{{ $t('fileBrowser.colSize') }}</div>
+        <div style="width:90px">{{ $t('fileBrowser.colProcessStatus') }}</div>
+        <div style="width:90px">{{ $t('fileBrowser.colAnnoStatus') }}</div>
+        <div style="width:90px">{{ $t('fileBrowser.colReviewStatus') }}</div>
         <div style="width:40px"></div>
       </div>
       <SlideCard
@@ -172,28 +173,26 @@
     <BatchExportDialog v-model="showBatchExport" :slides="batchExportSlides" />
 
     <!-- Batch delete confirm -->
-    <el-dialog v-model="showBatchDelete" title="批量删除" width="420px">
+    <el-dialog v-model="showBatchDelete" :title="$t('fileBrowser.batchDeleteTitle')" width="420px">
       <p>
-        确定要删除选中的 <strong>{{ selectedIds.size }}</strong> 个文件吗？<br />
-        <span class="warn-text">标注数据将同步删除，不可恢复。</span>
+        {{ $t('fileBrowser.batchDeleteConfirm', { count: selectedIds.size }) }}<br />
+        <span class="warn-text">{{ $t('fileBrowser.annoDataWarn') }}</span>
       </p>
       <template #footer>
-        <el-button @click="showBatchDelete = false">取消</el-button>
-        <el-button type="danger" :loading="batchDeleting" @click="confirmBatchDelete">确认删除</el-button>
+        <el-button @click="showBatchDelete = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="danger" :loading="batchDeleting" @click="confirmBatchDelete">{{ $t('common.confirmDelete') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- Delete confirm -->
-    <el-dialog v-model="showDelete" title="删除图像" width="400px">
+    <el-dialog v-model="showDelete" :title="$t('fileBrowser.deleteImageTitle')" width="400px">
       <p>
-        确定要删除
-        <strong>「{{ deleteTarget?.fileName }}」</strong>
-        吗？<br />
-        <span class="warn-text">标注数据将同步删除，不可恢复。</span>
+        {{ $t('fileBrowser.deleteImageConfirm', { name: deleteTarget?.fileName }) }}<br />
+        <span class="warn-text">{{ $t('fileBrowser.annoDataWarn') }}</span>
       </p>
       <template #footer>
-        <el-button @click="showDelete = false">取消</el-button>
-        <el-button type="danger" :loading="deleting" @click="confirmDelete">确认删除</el-button>
+        <el-button @click="showDelete = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="danger" :loading="deleting" @click="confirmDelete">{{ $t('common.confirmDelete') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -203,6 +202,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { ArrowLeft, Upload, Search, Grid, List, Download, Delete as DeleteIcon } from '@element-plus/icons-vue'
 
 import { useSlideStore } from '@/stores/slideStore'
@@ -213,7 +213,9 @@ import UploadDialog from '@/components/UploadDialog.vue'
 import MoveSlideDialog from '@/components/MoveSlideDialog.vue'
 import BatchExportDialog from '@/components/BatchExportDialog.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
+import LangSwitch from '@/components/LangSwitch.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const workspaceId = Number(route.params.id)
@@ -273,7 +275,6 @@ function toggleSelectAll(val) {
 }
 
 function handleBatchExportSelected() {
-  // Use selected slides for batch export
   showBatchExport.value = true
 }
 
@@ -288,7 +289,7 @@ async function confirmBatchDelete() {
     for (const id of ids) {
       await store.remove(id)
     }
-    ElMessage.success(`已删除 ${ids.length} 个文件`)
+    ElMessage.success(t('fileBrowser.batchDeleteSuccess', { count: ids.length }))
     selectedIds.value = new Set()
     showBatchDelete.value = false
   } finally {
@@ -337,7 +338,6 @@ const filteredSlides = computed(() => {
 
 // ── lifecycle ─────────────────────────────────────────────────────────────
 onMounted(async () => {
-  // Ensure workspace list is loaded (for move dialog and header name)
   if (!wsStore.workspaces.length) await wsStore.fetchAll()
   store.fetchAll(workspaceId)
 })
@@ -345,7 +345,7 @@ onMounted(async () => {
 // ── handlers ──────────────────────────────────────────────────────────────
 function handleOpen(slide) {
   if (slide.status !== 'READY') {
-    ElMessage.warning('图像尚未处理完成，请稍候')
+    ElMessage.warning(t('fileBrowser.imageNotReady'))
     return
   }
   router.push({ name: 'slideViewer', params: { id: slide.id } })
@@ -362,7 +362,7 @@ function handleDeleteClick(slide) {
 }
 
 function onUploaded(newSlides) {
-  ElMessage.success(`已上传 ${newSlides.length} 个文件，等待处理...`)
+  ElMessage.success(t('fileBrowser.uploadedMsg', { count: newSlides.length }))
 }
 
 function onMoved() {
@@ -374,7 +374,7 @@ async function confirmDelete() {
   deleting.value = true
   try {
     await store.remove(deleteTarget.value.id)
-    ElMessage.success('已删除')
+    ElMessage.success(t('fileBrowser.deletedMsg'))
     showDelete.value = false
   } finally {
     deleting.value = false

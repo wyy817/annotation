@@ -1,29 +1,40 @@
 <template>
-  <router-view />
+  <el-config-provider :locale="elLocale">
+    <router-view />
+  </el-config-provider>
 </template>
 
 <script setup>
-import { watch, onMounted } from 'vue'
+import { computed, watch, onMounted } from 'vue'
 import { ElNotification } from 'element-plus'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import enUs from 'element-plus/es/locale/lang/en'
 import { useUserStore } from '@/stores/userStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { useI18n } from 'vue-i18n'
 
+const { locale } = useI18n()
 const userStore = useUserStore()
 const notifStore = useNotificationStore()
 const { connect, disconnect } = useWebSocket()
 
+// Map i18n locale to Element Plus locale pack
+const elLocale = computed(() => locale.value === 'en-US' ? enUs : zhCn)
+
 const TYPE_CONFIG = {
-  REVIEW_PENDING: { elType: 'info',    title: '待审核通知' },
-  APPROVED:       { elType: 'success', title: '审核通过'   },
-  REJECTED:       { elType: 'warning', title: '审核拒绝'   },
+  REVIEW_PENDING: { elType: 'info',    titleKey: 'notification.reviewPending' },
+  APPROVED:       { elType: 'success', titleKey: 'notification.approved'      },
+  REJECTED:       { elType: 'warning', titleKey: 'notification.rejected'      },
 }
+
+const { t } = useI18n()
 
 function handleNotification(payload) {
   notifStore.addNotification(payload)
-  const { elType, title } = TYPE_CONFIG[payload.type] ?? { elType: 'info', title: '通知' }
+  const { elType, titleKey } = TYPE_CONFIG[payload.type] ?? { elType: 'info', titleKey: 'notification.default' }
   ElNotification({
-    title: `${title}：${payload.slideName}`,
+    title: `${t(titleKey)}：${payload.slideName}`,
     message: payload.message,
     type: elType,
     duration: 6000,

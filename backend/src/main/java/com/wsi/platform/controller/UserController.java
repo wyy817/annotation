@@ -1,6 +1,7 @@
 package com.wsi.platform.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.common.Result;
 import com.wsi.platform.entity.Slide;
 import com.wsi.platform.entity.User;
@@ -21,6 +22,7 @@ public class UserController {
 
     private final UserService userService;
     private final SlideMapper slideMapper;
+    private final MessageUtil messageUtil;
 
     @GetMapping("/api/users/annotators")
     public Result<List<Map<String, Object>>> annotators() {
@@ -56,7 +58,7 @@ public class UserController {
     public Result<Void> updateRemark(@PathVariable Long id, @RequestBody Map<String, String> body) {
         User user = userService.findById(id);
         if (user == null) {
-            return Result.error("用户不存在");
+            return Result.error(messageUtil.msg("error.user.notfound"));
         }
         user.setRemark(body.get("remark"));
         userService.updateRemark(user);

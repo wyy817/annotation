@@ -42,9 +42,9 @@
       <el-icon class="action-icon" @click.stop><MoreFilled /></el-icon>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item command="open" :disabled="slide.status !== 'READY'">打开查看</el-dropdown-item>
-          <el-dropdown-item command="move">移动到...</el-dropdown-item>
-          <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+          <el-dropdown-item command="open" :disabled="slide.status !== 'READY'">{{ $t('fileBrowser.openView') }}</el-dropdown-item>
+          <el-dropdown-item command="move">{{ $t('fileBrowser.moveTo') }}</el-dropdown-item>
+          <el-dropdown-item command="delete" divided>{{ $t('common.delete') }}</el-dropdown-item>
         </el-dropdown-menu>
       </template>
     </el-dropdown>
@@ -83,9 +83,9 @@
         <el-button link :icon="MoreFilled" />
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="open" :disabled="slide.status !== 'READY'">打开查看</el-dropdown-item>
-            <el-dropdown-item command="move">移动到...</el-dropdown-item>
-            <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+            <el-dropdown-item command="open" :disabled="slide.status !== 'READY'">{{ $t('fileBrowser.openView') }}</el-dropdown-item>
+            <el-dropdown-item command="move">{{ $t('fileBrowser.moveTo') }}</el-dropdown-item>
+            <el-dropdown-item command="delete" divided>{{ $t('common.delete') }}</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
@@ -94,7 +94,10 @@
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n'
 import { Loading, WarningFilled, Picture, MoreFilled } from '@element-plus/icons-vue'
+
+const { t } = useI18n()
 
 const props = defineProps({
   slide: { type: Object, required: true },
@@ -115,19 +118,19 @@ function statusType(s) {
   return { PENDING: 'info', PROCESSING: 'warning', READY: 'success', ERROR: 'danger' }[s] ?? 'info'
 }
 function statusLabel(s) {
-  return { PENDING: '等待处理', PROCESSING: '处理中', READY: '就绪', ERROR: '错误' }[s] ?? s
+  return { PENDING: t('fileBrowser.statusPending'), PROCESSING: t('fileBrowser.statusProcessing'), READY: t('fileBrowser.statusReady'), ERROR: t('fileBrowser.statusError') }[s] ?? s
 }
 function annoType(s) {
   return { NOT_STARTED: '', IN_PROGRESS: 'warning', DONE: 'success' }[s] ?? ''
 }
 function annoLabel(s) {
-  return { NOT_STARTED: '未标注', IN_PROGRESS: '标注中', DONE: '已完成' }[s] ?? s
+  return { NOT_STARTED: t('fileBrowser.annoNotStarted'), IN_PROGRESS: t('fileBrowser.annoInProgress'), DONE: t('fileBrowser.annoDone') }[s] ?? s
 }
 function reviewTagType(s) {
   return { PENDING_REVIEW: 'warning', APPROVED: 'success', REJECTED: 'danger' }[s] ?? 'info'
 }
 function reviewLabel(s) {
-  return { PENDING_REVIEW: '待审核', APPROVED: '已通过', REJECTED: '已拒绝' }[s] ?? s
+  return { PENDING_REVIEW: t('fileBrowser.reviewPending'), APPROVED: t('fileBrowser.reviewApproved'), REJECTED: t('fileBrowser.reviewRejected') }[s] ?? s
 }
 function formatSize(bytes) {
   if (!bytes) return ''

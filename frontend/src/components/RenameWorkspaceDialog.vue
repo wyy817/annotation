@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     :model-value="modelValue"
-    title="重命名工作空间"
+    :title="$t('workspace.renameWorkspace')"
     width="460px"
     @update:model-value="$emit('update:modelValue', $event)"
     @opened="initForm"
@@ -14,21 +14,21 @@
       label-width="80px"
       @submit.prevent="submit"
     >
-      <el-form-item label="名称" prop="name">
+      <el-form-item :label="$t('workspace.nameLabel')" prop="name">
         <el-input
           v-model="form.name"
-          placeholder="请输入新名称"
+          :placeholder="$t('workspace.newNamePlaceholder')"
           maxlength="100"
           show-word-limit
           autofocus
         />
       </el-form-item>
-      <el-form-item label="描述" prop="description">
+      <el-form-item :label="$t('workspace.descriptionLabel')" prop="description">
         <el-input
           v-model="form.description"
           type="textarea"
           :rows="3"
-          placeholder="（可选）简要描述"
+          :placeholder="$t('workspace.descriptionPlaceholderShort')"
           maxlength="500"
           show-word-limit
         />
@@ -36,15 +36,18 @@
     </el-form>
 
     <template #footer>
-      <el-button @click="$emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="submit">保存</el-button>
+      <el-button @click="$emit('update:modelValue', false)">{{ $t('common.cancel') }}</el-button>
+      <el-button type="primary" :loading="submitting" @click="submit">{{ $t('common.save') }}</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: Boolean,
@@ -60,8 +63,8 @@ const form = reactive({ name: '', description: '' })
 
 const rules = {
   name: [
-    { required: true, message: '名称不能为空', trigger: 'blur' },
-    { min: 1, max: 100, message: '长度 1~100 个字符', trigger: 'blur' }
+    { required: true, message: () => t('workspace.nameRequiredRule'), trigger: 'blur' },
+    { min: 1, max: 100, message: () => t('workspace.nameLengthRule'), trigger: 'blur' }
   ]
 }
 

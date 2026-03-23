@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="导入标注"
+    :title="$t('importDialog.title')"
     width="460px"
     :close-on-click-modal="false"
     @closed="onClosed"
@@ -11,10 +11,10 @@
 
       <!-- Format -->
       <div class="section">
-        <p class="section-label">文件格式：</p>
+        <p class="section-label">{{ $t('importDialog.formatLabel') }}</p>
         <el-radio-group v-model="format" size="default">
           <el-radio-button value="COCO">COCO JSON</el-radio-button>
-          <el-radio-button value="CUSTOM_JSON">平台 JSON</el-radio-button>
+          <el-radio-button value="CUSTOM_JSON">{{ $t('importDialog.formatCustom') }}</el-radio-button>
           <el-radio-button value="YOLO">YOLO TXT</el-radio-button>
           <el-radio-button value="VOC">VOC XML</el-radio-button>
           <el-radio-button value="GEOJSON">GeoJSON</el-radio-button>
@@ -24,17 +24,17 @@
 
       <!-- Mode -->
       <div class="section">
-        <p class="section-label">导入方式：</p>
+        <p class="section-label">{{ $t('importDialog.modeLabel') }}</p>
         <el-radio-group v-model="mode" size="default">
-          <el-radio-button value="REPLACE">替换全部</el-radio-button>
-          <el-radio-button value="MERGE">合并追加</el-radio-button>
+          <el-radio-button value="REPLACE">{{ $t('importDialog.modeReplace') }}</el-radio-button>
+          <el-radio-button value="MERGE">{{ $t('importDialog.modeMerge') }}</el-radio-button>
         </el-radio-group>
         <p class="section-hint">{{ modeHint }}</p>
       </div>
 
       <!-- YOLO: classes.txt -->
       <div v-if="format === 'YOLO'" class="section">
-        <p class="section-label">classes.txt（类别名称列表）：</p>
+        <p class="section-label">{{ $t('importDialog.classFileLabel') }}</p>
         <div
           class="drop-zone"
           :class="{ 'drop-zone--over': isDragOverClass, 'drop-zone--selected': !!classFile }"
@@ -45,14 +45,14 @@
         >
           <el-icon class="drop-icon"><Document /></el-icon>
           <span v-if="classFile" class="drop-text">{{ classFile.name }}</span>
-          <span v-else class="drop-text">点击或拖拽 classes.txt 到此处</span>
+          <span v-else class="drop-text">{{ $t('importDialog.classFileDrop') }}</span>
         </div>
         <input ref="classFileInput" type="file" accept=".txt" style="display:none" @change="onClassFileChange" />
       </div>
 
       <!-- File upload -->
       <div class="section">
-        <p class="section-label">{{ format === 'YOLO' ? '标注文件（.txt）：' : format === 'VOC' ? '标注文件（.xml）：' : format === 'GEOJSON' ? '标注文件（.json / .geojson）：' : '选择文件：' }}</p>
+        <p class="section-label">{{ annoFileLabel }}</p>
         <div
           class="drop-zone"
           :class="{ 'drop-zone--over': isDragOver, 'drop-zone--selected': !!selectedFile }"
@@ -63,7 +63,7 @@
         >
           <el-icon class="drop-icon"><Document /></el-icon>
           <span v-if="selectedFile" class="drop-text">{{ selectedFile.name }}</span>
-          <span v-else class="drop-text">{{ format === 'YOLO' ? '点击或拖拽 YOLO .txt 文件到此处' : format === 'VOC' ? '点击或拖拽 VOC .xml 文件到此处' : format === 'GEOJSON' ? '点击或拖拽 GeoJSON 文件到此处' : '点击或拖拽 JSON 文件到此处' }}</span>
+          <span v-else class="drop-text">{{ dropHint }}</span>
         </div>
         <input ref="fileInput" type="file" :accept="format === 'YOLO' ? '.txt' : format === 'VOC' ? '.xml' : '.json,.geojson'" style="display:none" @change="onFileChange" />
       </div>
@@ -72,20 +72,19 @@
       <div v-if="preview" class="preview-box">
         <el-icon><InfoFilled /></el-icon>
         <span v-if="preview.labelCount != null">
-          检测到 <strong>{{ preview.annotationCount }}</strong> 个标注，
-          <strong>{{ preview.labelCount }}</strong> 个类别
+          {{ $t('importDialog.previewWithLabel', { annoCount: preview.annotationCount, labelCount: preview.labelCount }) }}
         </span>
-        <span v-else>检测到 <strong>{{ preview.annotationCount }}</strong> 条标注行</span>
+        <span v-else>{{ $t('importDialog.previewAnnoOnly', { annoCount: preview.annotationCount }) }}</span>
       </div>
 
       <div class="import-actions">
-        <el-button @click="visible = false">取消</el-button>
+        <el-button @click="visible = false">{{ $t('common.cancel') }}</el-button>
         <el-button
           type="primary"
           :loading="importing"
           :disabled="!selectedFile"
           @click="doImport"
-        >{{ importing ? '导入中...' : '确认导入' }}</el-button>
+        >{{ importing ? $t('importDialog.importing') : $t('importDialog.confirmImport') }}</el-button>
       </div>
     </div>
   </el-dialog>
@@ -96,6 +95,9 @@ import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Upload, Document, InfoFilled } from '@element-plus/icons-vue'
 import { annotationApi } from '@/api/annotation'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ modelValue: Boolean, slideId: Number })
 const emit = defineEmits(['update:modelValue', 'imported'])
@@ -115,17 +117,29 @@ const importing = ref(false)
 const preview = ref(null)
 
 const formatHint = computed(() => ({
-  COCO: '标准 COCO instances JSON，含 images / annotations / categories 字段',
-  CUSTOM_JSON: '本平台导出的原生 JSON 格式，含 labels / annotations 字段',
-  YOLO: '需上传 classes.txt（类别列表）+ 标注 .txt（每行: class_id cx cy w h，归一化坐标）',
-  VOC: 'Pascal VOC XML 格式，含 <object><name> 和 <bndbox> 字段，导入为矩形标注',
-  GEOJSON: 'GeoJSON FeatureCollection：Polygon/MultiPolygon → 多边形标注，Point → 点标注；类别从 properties.label / name / category / class 自动映射'
+  COCO: t('importDialog.hintCOCO'),
+  CUSTOM_JSON: t('importDialog.hintCustom'),
+  YOLO: t('importDialog.hintYOLO'),
+  VOC: t('importDialog.hintVOC'),
+  GEOJSON: t('importDialog.hintGeoJSON'),
 })[format.value] ?? '')
 
 const modeHint = computed(() => ({
-  REPLACE: '删除当前所有标注后导入（不可恢复，建议先导出备份）',
-  MERGE: '保留现有标注，将新标注追加进来'
+  REPLACE: t('importDialog.modeHintReplace'),
+  MERGE: t('importDialog.modeHintMerge'),
 })[mode.value] ?? '')
+
+const annoFileLabel = computed(() => ({
+  YOLO: t('importDialog.annoFileLabelYOLO'),
+  VOC: t('importDialog.annoFileLabelVOC'),
+  GEOJSON: t('importDialog.annoFileLabelGeoJSON'),
+})[format.value] ?? t('importDialog.annoFileLabelDefault'))
+
+const dropHint = computed(() => ({
+  YOLO: t('importDialog.dropYOLO'),
+  VOC: t('importDialog.dropVOC'),
+  GEOJSON: t('importDialog.dropGeoJSON'),
+})[format.value] ?? t('importDialog.dropJSON'))
 
 function onDrop(e) {
   isDragOver.value = false
@@ -153,7 +167,7 @@ function onClassFileChange(e) {
 
 function setClassFile(f) {
   if (!f.name.endsWith('.txt')) {
-    ElMessage.warning('请选择 .txt 文件')
+    ElMessage.warning(t('importDialog.warnSelectTxt'))
     return
   }
   classFile.value = f
@@ -164,13 +178,13 @@ function setFile(f) {
   const extMap = { YOLO: '.txt', VOC: '.xml' }
   if (fmt in extMap) {
     if (!f.name.endsWith(extMap[fmt])) {
-      ElMessage.warning(`请选择 ${extMap[fmt]} 文件`)
+      ElMessage.warning(t('importDialog.warnSelectExt', { ext: extMap[fmt] }))
       return
     }
   } else {
     // COCO / CUSTOM_JSON / GEOJSON — accept .json or .geojson
     if (!f.name.endsWith('.json') && !f.name.endsWith('.geojson')) {
-      ElMessage.warning('请选择 .json 或 .geojson 文件')
+      ElMessage.warning(t('importDialog.warnSelectJson'))
       return
     }
   }
@@ -239,7 +253,7 @@ watch(format, () => {
 async function doImport() {
   if (!selectedFile.value) return
   if (format.value === 'YOLO' && !classFile.value) {
-    ElMessage.warning('请先上传 classes.txt 文件')
+    ElMessage.warning(t('importDialog.warnClassTxt'))
     return
   }
   importing.value = true
@@ -249,12 +263,14 @@ async function doImport() {
       format.value === 'YOLO' ? classFile.value : null
     )
     const result = res.data?.data ?? res.data
-    const labelMsg = result.labelCount != null ? `，新增 ${result.labelCount} 个标签类别` : ''
-    ElMessage.success(`导入成功：${result.annotationCount} 个标注${labelMsg}`)
+    const successMsg = result.labelCount != null
+      ? t('importDialog.successMsgWithLabel', { count: result.annotationCount, labelCount: result.labelCount })
+      : t('importDialog.successMsg', { count: result.annotationCount })
+    ElMessage.success(successMsg)
     emit('imported')
     visible.value = false
   } catch (err) {
-    const msg = err.response?.data?.message ?? err.message ?? '导入失败'
+    const msg = err.response?.data?.message ?? err.message ?? t('importDialog.failed')
     ElMessage.error(msg)
   } finally {
     importing.value = false

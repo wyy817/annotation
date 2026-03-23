@@ -1,10 +1,10 @@
 <template>
   <div class="stats-panel">
     <div class="toolbar">
-      <el-button :icon="Refresh" @click="loadStats">刷新</el-button>
+      <el-button :icon="Refresh" @click="loadStats">{{ $t('review.statsRefresh') }}</el-button>
       <el-select
         v-model="selectedWorkspace"
-        placeholder="全部工作区"
+        :placeholder="$t('review.statsAllWorkspaces')"
         clearable
         style="width: 200px; margin-left: 12px"
         @change="loadStats"
@@ -22,33 +22,33 @@
     <div class="summary-row">
       <div class="summary-card">
         <div class="summary-value">{{ stats.totalSlides }}</div>
-        <div class="summary-label">切片总数</div>
+        <div class="summary-label">{{ $t('review.statsTotalSlides') }}</div>
       </div>
       <div class="summary-card">
         <div class="summary-value">{{ stats.totalAnnotations }}</div>
-        <div class="summary-label">标注总数</div>
+        <div class="summary-label">{{ $t('review.statsTotalAnnotations') }}</div>
       </div>
       <div class="summary-card">
         <div class="summary-value">{{ stats.labelStats.length }}</div>
-        <div class="summary-label">标签类别</div>
+        <div class="summary-label">{{ $t('review.statsLabelCategories') }}</div>
       </div>
       <div class="summary-card">
         <div class="summary-value">{{ avgAnnotationsPerSlide }}</div>
-        <div class="summary-label">平均标注/切片</div>
+        <div class="summary-label">{{ $t('review.statsAvgPerSlide') }}</div>
       </div>
     </div>
 
-    <el-empty v-if="!stats.totalAnnotations" description="暂无标注数据" class="empty-state" />
+    <el-empty v-if="!stats.totalAnnotations" :description="$t('review.statsNoData')" class="empty-state" />
 
     <template v-else>
       <!-- Charts row 1: label count + type distribution -->
       <div class="chart-row">
         <div class="chart-box">
-          <h3 class="chart-title">各类标签数量分布</h3>
+          <h3 class="chart-title">{{ $t('review.statsLabelCountTitle') }}</h3>
           <div ref="labelCountChart" class="chart-canvas"></div>
         </div>
         <div class="chart-box chart-box-small">
-          <h3 class="chart-title">标注类型分布</h3>
+          <h3 class="chart-title">{{ $t('review.statsTypeTitle') }}</h3>
           <div ref="typeChart" class="chart-canvas"></div>
         </div>
       </div>
@@ -56,11 +56,11 @@
       <!-- Charts row 2: label area + per-slide -->
       <div class="chart-row">
         <div class="chart-box">
-          <h3 class="chart-title">各类标签面积占比</h3>
+          <h3 class="chart-title">{{ $t('review.statsLabelAreaTitle') }}</h3>
           <div ref="labelAreaChart" class="chart-canvas"></div>
         </div>
         <div class="chart-box">
-          <h3 class="chart-title">切片标注数量 (Top 20)</h3>
+          <h3 class="chart-title">{{ $t('review.statsSlideTitle') }}</h3>
           <div ref="slideChart" class="chart-canvas"></div>
         </div>
       </div>
@@ -70,7 +70,10 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Refresh } from '@element-plus/icons-vue'
+
+const { t } = useI18n()
 import * as echarts from 'echarts/core'
 import { BarChart, PieChart } from 'echarts/charts'
 import {
@@ -89,7 +92,11 @@ echarts.use([
   CanvasRenderer
 ])
 
-const TYPE_LABELS = { polygon: '多边形', rect: '矩形', brush: '画笔' }
+const typeLabel = (type) => ({
+  polygon: t('review.statsTypePolygon'),
+  rect: t('review.statsTypeRect'),
+  brush: t('review.statsTypeBrush'),
+}[type] ?? type)
 
 const selectedWorkspace = ref(null)
 const workspaces = ref([])
@@ -163,7 +170,7 @@ function renderLabelCountChart() {
   chart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 80, right: 24, top: 16, bottom: 40 },
-    xAxis: { type: 'value', name: '数量' },
+    xAxis: { type: 'value', name: t('review.statsCountAxis') },
     yAxis: {
       type: 'category',
       data: data.map(d => d.name),
@@ -194,7 +201,7 @@ function renderTypeChart() {
       center: ['50%', '45%'],
       label: { formatter: '{b}\n{d}%' },
       data: data.map(d => ({
-        name: TYPE_LABELS[d.type] || d.type,
+        name: typeLabel(d.type),
         value: d.count
       }))
     }]
@@ -207,7 +214,7 @@ function renderLabelAreaChart() {
   const data = stats.value.labelStats.filter(d => d.area > 0)
   if (!data.length) {
     chart.setOption({
-      title: { text: '无面积数据', left: 'center', top: 'center', textStyle: { color: '#c0c4cc', fontSize: 14 } }
+      title: { text: t('review.statsNoAreaData'), left: 'center', top: 'center', textStyle: { color: '#c0c4cc', fontSize: 14 } }
     })
     return
   }
@@ -236,7 +243,7 @@ function renderSlideChart() {
   chart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 120, right: 24, top: 16, bottom: 40 },
-    xAxis: { type: 'value', name: '标注数' },
+    xAxis: { type: 'value', name: t('review.statsAnnotationAxis') },
     yAxis: {
       type: 'category',
       data: data.map(d => d.fileName).reverse(),

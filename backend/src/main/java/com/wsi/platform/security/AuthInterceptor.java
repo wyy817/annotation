@@ -1,6 +1,7 @@
 package com.wsi.platform.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.common.Result;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +16,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
+    private final MessageUtil messageUtil;
 
     @Override
     public boolean preHandle(HttpServletRequest req, HttpServletResponse res, Object handler)
@@ -26,13 +28,13 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         String header = req.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
-            writeUnauthorized(res, "请先登录");
+            writeUnauthorized(res, messageUtil.msg("error.auth.unauthorized"));
             return false;
         }
 
         String token = header.substring(7);
         if (!jwtUtil.isValid(token)) {
-            writeUnauthorized(res, "登录已过期，请重新登录");
+            writeUnauthorized(res, messageUtil.msg("error.auth.tokenExpired"));
             return false;
         }
 

@@ -1,7 +1,7 @@
 <template>
   <aside class="label-panel">
     <div class="panel-header">
-      <span class="panel-title">标签</span>
+      <span class="panel-title">{{ $t('labelPanel.title') }}</span>
     </div>
 
     <!-- Label list -->
@@ -29,7 +29,7 @@
           size="small"
           class="inline-edit-input"
           maxlength="32"
-          placeholder="输入标签名称"
+          :placeholder="$t('labelPanel.editPlaceholder')"
           @keydown.enter="confirmEdit"
           @keydown.escape="cancelEdit"
           @blur="confirmEdit"
@@ -51,7 +51,7 @@
       </div>
 
       <div v-if="labels.length === 0" class="empty-hint">
-        暂无标签，点击绘图工具直接开始标注
+        {{ $t('labelPanel.emptyHint') }}
       </div>
     </div>
 
@@ -63,7 +63,7 @@
         <el-input
           v-model="newName"
           size="small"
-          placeholder="标签名称"
+          :placeholder="$t('labelPanel.namePlaceholder')"
           maxlength="32"
           @keydown.enter="doAdd"
           style="flex:1"
@@ -76,7 +76,7 @@
     <div class="brush-section" v-if="showBrushSize">
       <el-divider style="margin: 8px 0" />
       <div class="brush-label">
-        <span>画笔大小</span>
+        <span>{{ $t('labelPanel.brushSize') }}</span>
         <el-input-number
           :model-value="brushSize"
           :min="1"
@@ -102,7 +102,7 @@
     <div class="brush-section" v-if="showEraserSize">
       <el-divider style="margin: 8px 0" />
       <div class="brush-label" style="margin-bottom: 8px">
-        <span>擦除模式</span>
+        <span>{{ $t('labelPanel.eraserMode') }}</span>
       </div>
       <el-radio-group
         :model-value="eraserMode"
@@ -110,11 +110,11 @@
         class="eraser-mode-group"
         @update:model-value="$emit('eraser-mode', $event)"
       >
-        <el-radio-button value="pixel">擦像素</el-radio-button>
-        <el-radio-button value="stroke">擦笔划</el-radio-button>
+        <el-radio-button value="pixel">{{ $t('labelPanel.eraserPixel') }}</el-radio-button>
+        <el-radio-button value="stroke">{{ $t('labelPanel.eraserStroke') }}</el-radio-button>
       </el-radio-group>
       <div class="brush-label" style="margin-top: 8px">
-        <span>橡皮擦大小</span>
+        <span>{{ $t('labelPanel.eraserSize') }}</span>
         <el-input-number
           :model-value="eraserSize"
           :min="1"
@@ -140,7 +140,7 @@
     <div class="brush-section" v-if="showNudgeSize">
       <el-divider style="margin: 8px 0" />
       <div class="brush-label">
-        <span>推拉半径</span>
+        <span>{{ $t('labelPanel.nudgeRadius') }}</span>
         <el-input-number
           :model-value="nudgeSize"
           :min="5"
@@ -161,7 +161,7 @@
         @update:model-value="$emit('nudge-size', $event)"
       />
       <div class="brush-label" style="margin-top: 4px">
-        <span>推拉强度</span>
+        <span>{{ $t('labelPanel.nudgeStrength') }}</span>
         <el-input-number
           :model-value="Math.round(nudgeStrength * 100)"
           :min="5"
@@ -187,7 +187,7 @@
     <div class="brush-section" v-if="showPointSize">
       <el-divider style="margin: 8px 0" />
       <div class="brush-label">
-        <span>点大小</span>
+        <span>{{ $t('labelPanel.pointSize') }}</span>
         <el-input-number
           :model-value="pointSize"
           :min="3"
@@ -270,7 +270,8 @@ watch(() => props.editingId, (id) => {
 
 function startEdit(label) {
   editingId.value   = label.id
-  editingName.value = label.name.startsWith('未命名') ? '' : label.name
+  const isAutoName = label.name.startsWith('未命名') || label.name.startsWith('Unnamed Label')
+  editingName.value = isAutoName ? '' : label.name
   nextTick(() => {
     const inputEl = editInputRef.value
     // el-input may be an array when used in v-for with same ref

@@ -1,5 +1,6 @@
 package com.wsi.platform.controller;
 
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.common.Result;
 import com.wsi.platform.entity.User;
 import com.wsi.platform.security.JwtUtil;
@@ -21,6 +22,7 @@ public class AuthController {
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
+    private final MessageUtil messageUtil;
 
     @Data
     static class LoginRequest {
@@ -55,7 +57,7 @@ public class AuthController {
             return Result.error(403, e.getMessage());
         }
         if (user == null) {
-            return Result.error(401, "用户名或密码错误");
+            return Result.error(401, messageUtil.msg("error.credentials.invalid"));
         }
         String token = jwtUtil.generate(user.getId(), user.getUsername(), user.getRole());
         return Result.success(Map.of(

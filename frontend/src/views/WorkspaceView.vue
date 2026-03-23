@@ -4,21 +4,22 @@
     <header class="page-header">
       <div class="header-content">
         <h1 class="logo">WSI Platform</h1>
-        <p class="subtitle">全切片图像标注平台</p>
+        <p class="subtitle">{{ $t('app.subtitle') }}</p>
       </div>
       <div class="header-right">
         <span class="user-info">
-          <el-tag type="success" size="small">标注者</el-tag>
+          <el-tag type="success" size="small">{{ $t('workspace.annotatorTag') }}</el-tag>
           {{ userStore.user?.username }}
         </span>
         <NotificationBell />
-        <el-button size="small" @click="handleLogout">退出登录</el-button>
+        <LangSwitch />
+        <el-button size="small" @click="handleLogout">{{ $t('auth.logout') }}</el-button>
         <el-button
           :type="selectionMode ? 'warning' : ''"
           @click="toggleSelectionMode"
-        >{{ selectionMode ? '退出选择' : '批量选择' }}</el-button>
+        >{{ selectionMode ? $t('common.exitSelection') : $t('common.batchSelect') }}</el-button>
         <el-button type="primary" :icon="Plus" @click="showCreate = true">
-          新建工作空间
+          {{ $t('workspace.newWorkspace') }}
         </el-button>
       </div>
     </header>
@@ -31,7 +32,7 @@
     <!-- Empty state -->
     <el-empty
       v-else-if="store.workspaces.length === 0"
-      description="还没有工作空间，点击右上角新建一个吧"
+      :description="$t('workspace.empty')"
       class="empty-state"
     />
 
@@ -43,14 +44,14 @@
           :model-value="isAllSelected"
           :indeterminate="isIndeterminate"
           @change="toggleSelectAll"
-        >全选</el-checkbox>
-        <span class="batch-info">已选 {{ selectedIds.size }} 项</span>
+        >{{ $t('common.selectAll') }}</el-checkbox>
+        <span class="batch-info">{{ $t('common.selectedCount', { count: selectedIds.size }) }}</span>
         <el-button
           type="danger"
           :icon="Delete"
           :disabled="!selectedIds.size"
           @click="showBatchDelete = true"
-        >删除</el-button>
+        >{{ $t('common.delete') }}</el-button>
       </div>
 
       <div class="card-grid">
@@ -78,27 +79,25 @@
     />
 
     <!-- Batch delete confirm -->
-    <el-dialog v-model="showBatchDelete" title="批量删除工作空间" width="420px">
+    <el-dialog v-model="showBatchDelete" :title="$t('workspace.batchDeleteTitle')" width="420px">
       <p>
-        确定要删除选中的 <strong>{{ selectedIds.size }}</strong> 个工作空间吗？<br />
-        <span class="warn-text">工作空间内所有图像和标注将被永久删除，不可恢复。</span>
+        {{ $t('workspace.batchDeleteConfirm', { count: selectedIds.size }) }}<br />
+        <span class="warn-text">{{ $t('workspace.allDataWarn') }}</span>
       </p>
       <template #footer>
-        <el-button @click="showBatchDelete = false">取消</el-button>
-        <el-button type="danger" :loading="batchDeleting" @click="confirmBatchDelete">确认删除</el-button>
+        <el-button @click="showBatchDelete = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="danger" :loading="batchDeleting" @click="confirmBatchDelete">{{ $t('common.confirmDelete') }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showDelete" title="删除工作空间" width="400px">
+    <el-dialog v-model="showDelete" :title="$t('workspace.deleteTitle')" width="400px">
       <p>
-        确定要删除工作空间
-        <strong>「{{ deleteTarget?.name }}」</strong>
-        吗？<br />
-        <span class="warn-text">工作空间内所有图像和标注将被永久删除，不可恢复。</span>
+        {{ $t('workspace.deleteContentConfirm', { name: deleteTarget?.name }) }}<br />
+        <span class="warn-text">{{ $t('workspace.allDataWarn') }}</span>
       </p>
       <template #footer>
-        <el-button @click="showDelete = false">取消</el-button>
-        <el-button type="danger" :loading="deleting" @click="confirmDelete">确认删除</el-button>
+        <el-button @click="showDelete = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="danger" :loading="deleting" @click="confirmDelete">{{ $t('common.confirmDelete') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -108,8 +107,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import NotificationBell from '@/components/NotificationBell.vue'
+import LangSwitch from '@/components/LangSwitch.vue'
 
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useUserStore } from '@/stores/userStore'
@@ -117,6 +118,7 @@ import WorkspaceCard from '@/components/WorkspaceCard.vue'
 import CreateWorkspaceDialog from '@/components/CreateWorkspaceDialog.vue'
 import RenameWorkspaceDialog from '@/components/RenameWorkspaceDialog.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const store = useWorkspaceStore()
 const userStore = useUserStore()
@@ -173,7 +175,7 @@ async function confirmBatchDelete() {
     for (const id of ids) {
       await store.remove(id)
     }
-    ElMessage.success(`已删除 ${ids.length} 个工作空间`)
+    ElMessage.success(t('workspace.batchDeleteSuccess', { count: ids.length }))
     selectedIds.value = new Set()
     showBatchDelete.value = false
   } finally {
@@ -198,11 +200,11 @@ function handleDeleteClick(ws) {
 }
 
 function onCreated(ws) {
-  ElMessage.success(`工作空间「${ws.name}」已创建`)
+  ElMessage.success(t('workspace.createdMsg', { name: ws.name }))
 }
 
 function onRenamed(ws) {
-  ElMessage.success(`已重命名为「${ws.name}」`)
+  ElMessage.success(t('workspace.renamedMsg', { name: ws.name }))
 }
 
 async function confirmDelete() {
@@ -210,7 +212,7 @@ async function confirmDelete() {
   deleting.value = true
   try {
     await store.remove(deleteTarget.value.id)
-    ElMessage.success('工作空间已删除')
+    ElMessage.success(t('workspace.deleteSuccess'))
     showDelete.value = false
   } finally {
     deleting.value = false

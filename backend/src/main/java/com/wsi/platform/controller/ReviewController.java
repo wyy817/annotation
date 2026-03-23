@@ -1,6 +1,7 @@
 package com.wsi.platform.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.common.Result;
 import com.wsi.platform.entity.Slide;
 import com.wsi.platform.mapper.SlideMapper;
@@ -30,6 +31,7 @@ public class ReviewController {
     private final AnnotationVersionService annotationVersionService;
     private final AuditLogService auditLogService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final MessageUtil messageUtil;
 
     @GetMapping("/api/reviews/approved")
     public Result<List<Slide>> approved() {
@@ -54,7 +56,7 @@ public class ReviewController {
         Slide slide = slideMapper.selectById(slideId);
         if (slide == null) return Result.error(404, "Slide not found");
         if (!"PENDING_REVIEW".equals(slide.getReviewStatus())) {
-            return Result.error(400, "该切片不在待审核状态");
+            return Result.error(400, messageUtil.msg("error.review.notPending"));
         }
         UserContext.UserInfo reviewer = UserContext.get();
         slide.setReviewStatus("APPROVED");
@@ -92,7 +94,7 @@ public class ReviewController {
         Slide slide = slideMapper.selectById(slideId);
         if (slide == null) return Result.error(404, "Slide not found");
         if (!"PENDING_REVIEW".equals(slide.getReviewStatus())) {
-            return Result.error(400, "该切片不在待审核状态");
+            return Result.error(400, messageUtil.msg("error.review.notPending"));
         }
         UserContext.UserInfo reviewer = UserContext.get();
         slide.setReviewStatus("REJECTED");

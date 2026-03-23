@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="批量导出数据集"
+    :title="$t('exportDialog.batchTitle')"
     width="520px"
     :close-on-click-modal="false"
     @closed="onClosed"
@@ -9,12 +9,12 @@
     <!-- Confirm: show slide list before starting -->
     <div v-if="phase === 'confirm'" class="batch-body">
       <p class="batch-desc">
-        以下 <strong>{{ slides.length }}</strong> 个已通过审核的切片将合并导出为一个 ZIP 文件：
+        {{ $t('exportDialog.batchDesc', { count: slides.length }) }}
       </p>
 
       <!-- Format selector -->
       <div class="format-section">
-        <p class="format-label">选择导出格式：</p>
+        <p class="format-label">{{ $t('exportDialog.selectFormat') }}</p>
         <el-radio-group v-model="selectedFormat" size="default">
           <el-radio-button v-for="f in formats" :key="f.value" :value="f.value">
             {{ f.label }}
@@ -25,7 +25,7 @@
 
       <!-- Patch size selector (PATCHES only) -->
       <div v-if="selectedFormat === 'PATCHES'" class="option-section">
-        <p class="format-label">Patch 尺寸：</p>
+        <p class="format-label">{{ $t('exportDialog.patchSize') }}</p>
         <el-radio-group v-model="patchSize" size="small">
           <el-radio-button :value="128">128×128</el-radio-button>
           <el-radio-button :value="256">256×256</el-radio-button>
@@ -35,15 +35,15 @@
 
       <!-- Mask options (MASK_ONLY only) -->
       <div v-if="selectedFormat === 'MASK_ONLY'" class="option-section">
-        <p class="format-label">掩码类型：</p>
+        <p class="format-label">{{ $t('exportDialog.maskType') }}</p>
         <el-radio-group v-model="maskType" size="small">
-          <el-radio-button value="SEMANTIC">语义掩码</el-radio-button>
-          <el-radio-button value="COLOR">彩色 RGB</el-radio-button>
-          <el-radio-button value="INSTANCE">实例掩码</el-radio-button>
+          <el-radio-button value="SEMANTIC">{{ $t('exportDialog.maskSemantic') }}</el-radio-button>
+          <el-radio-button value="COLOR">{{ $t('exportDialog.maskColor') }}</el-radio-button>
+          <el-radio-button value="INSTANCE">{{ $t('exportDialog.maskInstance') }}</el-radio-button>
         </el-radio-group>
-        <p class="format-label" style="margin-top: 8px">降采样倍率：</p>
+        <p class="format-label" style="margin-top: 8px">{{ $t('exportDialog.maskDownsample') }}</p>
         <el-radio-group v-model="maskScale" size="small">
-          <el-radio-button :value="1">1× (原始)</el-radio-button>
+          <el-radio-button :value="1">{{ $t('exportDialog.maskScaleOriginal') }}</el-radio-button>
           <el-radio-button :value="2">2×</el-radio-button>
           <el-radio-button :value="4">4×</el-radio-button>
           <el-radio-button :value="8">8×</el-radio-button>
@@ -57,14 +57,14 @@
         </div>
       </el-scrollbar>
       <el-button type="primary" style="margin-top:16px" :loading="starting" @click="start">
-        开始批量导出
+        {{ $t('exportDialog.startBatchExport') }}
       </el-button>
     </div>
 
     <!-- Running -->
     <div v-else-if="phase === 'running'" class="batch-body centered">
       <el-icon class="spin big-icon" style="color:#409eff"><Loading /></el-icon>
-      <p class="batch-desc">正在生成数据集 ZIP，请稍候…</p>
+      <p class="batch-desc">{{ $t('exportDialog.generatingZip') }}</p>
       <el-progress
         :percentage="progressPct"
         :striped="true"
@@ -72,29 +72,29 @@
         :duration="8"
         style="width:300px; margin-top:8px"
       />
-      <p class="hint-text">包含 {{ slides.length }} 个切片，格式：{{ selectedFormat }}</p>
+      <p class="hint-text">{{ $t('exportDialog.slidesInfo', { count: slides.length, format: selectedFormat }) }}</p>
     </div>
 
     <!-- Done -->
     <div v-else-if="phase === 'done'" class="batch-body centered">
       <el-icon style="font-size:48px; color:#67c23a"><CircleCheck /></el-icon>
-      <p style="color:#67c23a; font-weight:500; margin:8px 0">导出完成！</p>
+      <p style="color:#67c23a; font-weight:500; margin:8px 0">{{ $t('exportDialog.exportDone') }}</p>
       <el-button type="primary" :icon="Download" @click="downloadResult">
-        下载 ZIP
+        {{ $t('exportDialog.downloadZip') }}
       </el-button>
     </div>
 
     <!-- Error -->
     <div v-else-if="phase === 'error'" class="batch-body centered">
       <el-icon style="font-size:48px; color:#f56c6c"><CircleClose /></el-icon>
-      <p style="color:#f56c6c; font-weight:500; margin:8px 0">导出失败</p>
+      <p style="color:#f56c6c; font-weight:500; margin:8px 0">{{ $t('exportDialog.exportFailed') }}</p>
       <p style="color:#909399; font-size:12px">{{ errorMsg }}</p>
-      <el-button @click="reset">重试</el-button>
+      <el-button @click="reset">{{ $t('exportDialog.retry') }}</el-button>
     </div>
 
     <template #footer>
       <el-button @click="visible = false">
-        {{ phase === 'done' ? '关闭' : '取消' }}
+        {{ phase === 'done' ? $t('common.close') : $t('common.cancel') }}
       </el-button>
     </template>
   </el-dialog>
@@ -102,6 +102,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Download, Loading, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue'
 import { exportApi } from '@/api/export'
 
@@ -110,6 +111,8 @@ const props = defineProps({
   slides:     { type: Array, required: true }   // [{id, fileName, ...}]
 })
 const emit = defineEmits(['update:modelValue'])
+
+const { t } = useI18n()
 
 const visible  = ref(false)
 const phase    = ref('confirm')   // confirm | running | done | error
@@ -121,25 +124,25 @@ const patchSize = ref(256)
 const maskType = ref('SEMANTIC')
 const maskScale = ref(1)
 
-const formats = [
+const formats = computed(() => [
   { value: 'COCO',      label: 'COCO' },
   { value: 'YOLO',      label: 'YOLO' },
   { value: 'VOC',       label: 'VOC' },
   { value: 'GEOJSON',   label: 'GeoJSON' },
-  { value: 'MASK_ONLY', label: '仅 Mask' },
+  { value: 'MASK_ONLY', label: t('exportDialog.maskOnlyLabel') },
   { value: 'PATCHES',   label: 'Patches' }
-]
+])
 
-const formatDescriptions = {
-  COCO:      '标准 COCO 格式：instances.json + 语义掩码 + 缩略图',
-  YOLO:      'YOLO 检测/分割格式：images/ + labels/ + data.yaml',
-  VOC:       'Pascal VOC XML 格式：每张图对应一个 XML 标注文件（bndbox 边界框）',
-  GEOJSON:   'GeoJSON 矢量格式：FeatureCollection + Polygon/Point 几何体',
-  MASK_ONLY: '语义/彩色/实例掩码 PNG，支持降采样',
-  PATCHES:   '按标注区域裁切小图，按标签分类存储 + labels.csv'
-}
+const formatDescriptions = computed(() => ({
+  COCO:      t('exportDialog.descCOCO'),
+  YOLO:      t('exportDialog.descYOLO'),
+  VOC:       t('exportDialog.descVOC'),
+  GEOJSON:   t('exportDialog.descGeoJSON'),
+  MASK_ONLY: t('exportDialog.descMask'),
+  PATCHES:   t('exportDialog.descPatches')
+}))
 
-const formatHint = computed(() => formatDescriptions[selectedFormat.value] || '')
+const formatHint = computed(() => formatDescriptions.value[selectedFormat.value] || '')
 
 let pollTimer = null
 
@@ -171,7 +174,7 @@ async function start() {
     startPolling()
   } catch (e) {
     phase.value = 'error'
-    errorMsg.value = e.message || '请求失败'
+    errorMsg.value = e.message || t('exportDialog.requestFailed')
   } finally {
     starting.value = false
   }
@@ -192,7 +195,7 @@ function startPolling() {
     } else if (task.value.status === 'ERROR') {
       stopPolling()
       phase.value = 'error'
-      errorMsg.value = '服务器处理失败，请重试'
+      errorMsg.value = t('exportDialog.serverFailed')
     }
   }, 2000)
 }

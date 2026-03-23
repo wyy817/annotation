@@ -1,5 +1,6 @@
 package com.wsi.platform.controller;
 
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.common.Result;
 import com.wsi.platform.service.ImportService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ImportController {
 
     private final ImportService importService;
+    private final MessageUtil messageUtil;
 
     @PostMapping("/api/slides/{slideId}/annotations/import")
     public Result<ImportService.ImportResult> importAnnotations(
@@ -43,7 +45,7 @@ public class ImportController {
             return Result.error(400, e.getMessage());
         } catch (Exception e) {
             log.error("Import failed for slide {}: {}", slideId, e.getMessage(), e);
-            return Result.error(500, "导入失败: " + e.getMessage());
+            return Result.error(500, messageUtil.msg("error.import.failed") + ": " + e.getMessage());
         }
     }
 }

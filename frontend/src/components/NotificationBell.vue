@@ -9,7 +9,7 @@
     <!-- Trigger: bell button with badge -->
     <template #reference>
       <el-badge :value="unreadCount || ''" :hidden="unreadCount === 0" type="danger">
-        <el-tooltip content="通知" placement="bottom">
+        <el-tooltip :content="$t('notif.tooltip')" placement="bottom">
           <el-button size="small" :icon="Bell" circle @click="onOpen" />
         </el-tooltip>
       </el-badge>
@@ -17,17 +17,17 @@
 
     <!-- Popover content -->
     <div class="notif-header">
-      <span class="notif-title">通知</span>
+      <span class="notif-title">{{ $t('notif.title') }}</span>
       <el-button
         v-if="notifications.length"
         link
         size="small"
         @click="notifStore.markAllRead()"
-      >全部标为已读</el-button>
+      >{{ $t('notif.markAllRead') }}</el-button>
     </div>
 
     <el-scrollbar max-height="360px">
-      <div v-if="!notifications.length" class="notif-empty">暂无通知</div>
+      <div v-if="!notifications.length" class="notif-empty">{{ $t('notif.empty') }}</div>
       <div
         v-for="n in notifications"
         :key="n.id"

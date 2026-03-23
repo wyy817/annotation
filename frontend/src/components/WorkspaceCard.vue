@@ -13,9 +13,9 @@
     <div class="card-body">
       <div class="card-title" :title="workspace.name">{{ workspace.name }}</div>
       <div class="card-desc" :title="workspace.description || ''">
-        {{ workspace.description || '无描述' }}
+        {{ workspace.description || $t('workspace.noDescription') }}
       </div>
-      <div class="card-meta">创建于 {{ formatDate(workspace.createdAt) }}</div>
+      <div class="card-meta">{{ $t('workspace.createdAt', { date: formatDate(workspace.createdAt) }) }}</div>
     </div>
 
     <!-- Actions (stop click propagation) -->
@@ -25,10 +25,10 @@
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="rename">
-              <el-icon><Edit /></el-icon> 重命名
+              <el-icon><Edit /></el-icon> {{ $t('workspace.renameWorkspace') }}
             </el-dropdown-item>
             <el-dropdown-item command="delete" class="danger-item">
-              <el-icon><Delete /></el-icon> 删除
+              <el-icon><Delete /></el-icon> {{ $t('common.delete') }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>

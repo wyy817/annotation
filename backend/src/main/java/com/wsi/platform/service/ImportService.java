@@ -3,6 +3,7 @@ package com.wsi.platform.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.entity.Annotation;
 import com.wsi.platform.entity.Label;
 import com.wsi.platform.entity.Slide;
@@ -49,6 +50,7 @@ public class ImportService {
     private final SlideMapper slideMapper;
     private final ObjectMapper objectMapper;
     private final AuditLogService auditLogService;
+    private final MessageUtil messageUtil;
 
     /** Auto-assign palette for imported categories that carry no color info. */
     private static final String[] PALETTE = {
@@ -251,12 +253,12 @@ public class ImportService {
                                     InputStream classesStream,
                                     String mode) throws Exception {
         if (classesStream == null) {
-            throw new IllegalArgumentException("YOLO 格式需要同时上传 classes.txt 文件");
+            throw new IllegalArgumentException(messageUtil.msg("error.import.yoloNeedsClasses"));
         }
         int slideWidth  = slide.getWidth()  != null ? slide.getWidth()  : 0;
         int slideHeight = slide.getHeight() != null ? slide.getHeight() : 0;
         if (slideWidth == 0 || slideHeight == 0) {
-            throw new IllegalArgumentException("幻灯片尺寸未知，无法反归一化 YOLO 坐标");
+            throw new IllegalArgumentException(messageUtil.msg("error.import.yoloSizeUnknown"));
         }
 
         // Read class names (one per line)
@@ -396,7 +398,7 @@ public class ImportService {
     private ImportResult importGeoJson(Long slideId, JsonNode root, String mode) throws Exception {
         JsonNode features = root.path("features");
         if (!features.isArray()) {
-            throw new IllegalArgumentException("GeoJSON 格式错误：缺少 features 数组");
+            throw new IllegalArgumentException(messageUtil.msg("error.import.geojsonFormat"));
         }
 
         Map<String, Label> existingByName = loadExistingLabelsByName(slideId);

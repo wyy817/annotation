@@ -5,15 +5,16 @@
       <div class="header-left">
         <h1 class="logo">WSI Platform</h1>
         <el-divider direction="vertical" />
-        <span class="page-title">用户管理</span>
+        <span class="page-title">{{ $t('admin.userManagement') }}</span>
       </div>
       <div class="header-right">
         <span class="user-info">
-          <el-tag type="warning" size="small">审核者</el-tag>
+          <el-tag type="warning" size="small">{{ $t('admin.reviewerTag') }}</el-tag>
           {{ userStore.user?.username }}
         </span>
-        <el-button size="small" @click="$router.push({ name: 'reviewDashboard' })">返回审核</el-button>
-        <el-button size="small" @click="handleLogout">退出登录</el-button>
+        <LangSwitch />
+        <el-button size="small" @click="$router.push({ name: 'reviewDashboard' })">{{ $t('admin.backToReview') }}</el-button>
+        <el-button size="small" @click="handleLogout">{{ $t('auth.logout') }}</el-button>
       </div>
     </header>
 
@@ -22,73 +23,73 @@
         <!-- Pending approval tab -->
         <el-tab-pane name="pending">
           <template #label>
-            待审批
+            {{ $t('admin.pendingTab') }}
             <el-badge v-if="pendingUsers.length" :value="pendingUsers.length" type="danger" class="tab-badge" />
           </template>
 
           <div class="toolbar">
-            <el-button :icon="Refresh" @click="loadPending" :loading="loadingPending">刷新</el-button>
+            <el-button :icon="Refresh" @click="loadPending" :loading="loadingPending">{{ $t('common.refresh') }}</el-button>
           </div>
 
-          <el-empty v-if="!loadingPending && !pendingUsers.length" description="暂无待审批用户" class="empty-state" />
+          <el-empty v-if="!loadingPending && !pendingUsers.length" :description="$t('admin.noPendingUsers')" class="empty-state" />
 
           <el-table v-else :data="pendingUsers" v-loading="loadingPending" class="user-table">
-            <el-table-column label="用户名" prop="username" />
-            <el-table-column label="角色">
+            <el-table-column :label="$t('admin.username')" prop="username" />
+            <el-table-column :label="$t('admin.role')">
               <template #default="{ row }">
                 <el-tag :type="row.role === 'REVIEWER' ? 'warning' : 'success'" size="small">
-                  {{ row.role === 'REVIEWER' ? '审阅者' : '标注员' }}
+                  {{ row.role === 'REVIEWER' ? $t('admin.reviewerLabel') : $t('admin.annotatorLabel') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="注册时间">
+            <el-table-column :label="$t('admin.registerTime')">
               <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="180">
+            <el-table-column :label="$t('admin.actions')" width="180">
               <template #default="{ row }">
                 <el-button
                   type="success"
                   size="small"
                   :loading="approvingId === row.id"
                   @click="handleApprove(row)"
-                >通过</el-button>
+                >{{ $t('admin.approveBtn') }}</el-button>
                 <el-button
                   type="danger"
                   size="small"
                   :loading="disablingId === row.id"
                   @click="handleDisable(row)"
-                >拒绝</el-button>
+                >{{ $t('admin.rejectBtn') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
 
         <!-- All users tab -->
-        <el-tab-pane label="所有用户" name="all">
+        <el-tab-pane :label="$t('admin.allUsers')" name="all">
           <div class="toolbar">
-            <el-button :icon="Refresh" @click="loadAll" :loading="loadingAll">刷新</el-button>
+            <el-button :icon="Refresh" @click="loadAll" :loading="loadingAll">{{ $t('common.refresh') }}</el-button>
           </div>
 
           <el-table :data="allUsers" v-loading="loadingAll" class="user-table">
-            <el-table-column label="用户名" prop="username" />
-            <el-table-column label="角色">
+            <el-table-column :label="$t('admin.username')" prop="username" />
+            <el-table-column :label="$t('admin.role')">
               <template #default="{ row }">
                 <el-tag :type="row.role === 'REVIEWER' ? 'warning' : 'success'" size="small">
-                  {{ row.role === 'REVIEWER' ? '审阅者' : '标注员' }}
+                  {{ row.role === 'REVIEWER' ? $t('admin.reviewerLabel') : $t('admin.annotatorLabel') }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="状态">
+            <el-table-column :label="$t('admin.status')">
               <template #default="{ row }">
                 <el-tag :type="statusTagType(row.status)" size="small">
                   {{ statusLabel(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="注册时间">
+            <el-table-column :label="$t('admin.registerTime')">
               <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="180">
+            <el-table-column :label="$t('admin.actions')" width="180">
               <template #default="{ row }">
                 <el-button
                   v-if="row.status !== 'ACTIVE'"
@@ -96,14 +97,14 @@
                   size="small"
                   :loading="approvingId === row.id"
                   @click="handleApprove(row)"
-                >激活</el-button>
+                >{{ $t('admin.activateBtn') }}</el-button>
                 <el-button
                   v-if="row.status !== 'DISABLED'"
                   type="danger"
                   size="small"
                   :loading="disablingId === row.id"
                   @click="handleDisable(row)"
-                >禁用</el-button>
+                >{{ $t('admin.disableBtn') }}</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -117,10 +118,13 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { Refresh } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/userStore'
 import { adminApi } from '@/api/auth'
+import LangSwitch from '@/components/LangSwitch.vue'
 
+const { t, locale } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -156,7 +160,7 @@ async function handleApprove(user) {
   approvingId.value = user.id
   try {
     await adminApi.approve(user.id)
-    ElMessage.success(`已激活用户 ${user.username}`)
+    ElMessage.success(t('admin.activateSuccess', { name: user.username }))
     await loadPending()
     if (activeTab.value === 'all') await loadAll()
   } finally {
@@ -167,9 +171,9 @@ async function handleApprove(user) {
 async function handleDisable(user) {
   try {
     await ElMessageBox.confirm(
-      `确定要禁用用户 "${user.username}" 吗？`,
-      '禁用确认',
-      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+      t('admin.disableConfirm', { name: user.username }),
+      t('admin.disableTitle'),
+      { confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning' }
     )
   } catch {
     return
@@ -177,7 +181,7 @@ async function handleDisable(user) {
   disablingId.value = user.id
   try {
     await adminApi.disable(user.id)
-    ElMessage.success(`已禁用用户 ${user.username}`)
+    ElMessage.success(t('admin.disableSuccess', { name: user.username }))
     await loadPending()
     if (activeTab.value === 'all') await loadAll()
   } finally {
@@ -192,11 +196,16 @@ function handleLogout() {
 
 function formatDate(dt) {
   if (!dt) return '-'
-  return new Date(dt).toLocaleString('zh-CN', { hour12: false })
+  return new Date(dt).toLocaleString(locale.value === 'en-US' ? 'en-US' : 'zh-CN', { hour12: false })
 }
 
 function statusLabel(status) {
-  return { PENDING: '待审批', ACTIVE: '正常', DISABLED: '已禁用' }[status] ?? status
+  const map = {
+    PENDING: t('admin.statusPending'),
+    ACTIVE: t('admin.statusActive'),
+    DISABLED: t('admin.statusDisabled'),
+  }
+  return map[status] ?? status
 }
 
 function statusTagType(status) {

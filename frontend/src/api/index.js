@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { getLocale } from '../i18n'
 
 const http = axios.create({
   baseURL: '/api',
@@ -11,6 +12,7 @@ http.interceptors.request.use((config) => {
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`
   }
+  config.headers['Accept-Language'] = getLocale()
   return config
 })
 

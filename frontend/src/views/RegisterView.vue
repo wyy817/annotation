@@ -3,14 +3,14 @@
     <div class="register-box">
       <div class="register-header">
         <h1 class="logo">WSI Platform</h1>
-        <p class="subtitle">创建新账号</p>
+        <p class="subtitle">{{ $t('auth.registerTitle') }}</p>
       </div>
 
       <el-form :model="form" :rules="rules" ref="formRef" label-width="0">
         <el-form-item prop="username">
           <el-input
             v-model="form.username"
-            placeholder="用户名（3~30 个字符）"
+            :placeholder="$t('auth.usernamePlaceholder')"
             size="large"
             :prefix-icon="User"
             autocomplete="username"
@@ -19,7 +19,7 @@
         <el-form-item prop="password">
           <el-input
             v-model="form.password"
-            placeholder="密码（至少 6 位）"
+            :placeholder="$t('auth.passwordPlaceholder')"
             size="large"
             type="password"
             :prefix-icon="Lock"
@@ -30,7 +30,7 @@
         <el-form-item prop="confirmPassword">
           <el-input
             v-model="form.confirmPassword"
-            placeholder="确认密码"
+            :placeholder="$t('auth.confirmPassword')"
             size="large"
             type="password"
             :prefix-icon="Lock"
@@ -41,12 +41,12 @@
         <el-form-item prop="role">
           <el-select
             v-model="form.role"
-            placeholder="选择角色"
+            :placeholder="$t('auth.selectRole')"
             size="large"
             style="width:100%"
           >
-            <el-option label="标注员 (ANNOTATOR)" value="ANNOTATOR" />
-            <el-option label="审阅者 (REVIEWER)" value="REVIEWER" />
+            <el-option :label="$t('auth.roleAnnotator')" value="ANNOTATOR" />
+            <el-option :label="$t('auth.roleReviewer')" value="REVIEWER" />
           </el-select>
         </el-form-item>
         <el-button
@@ -56,12 +56,15 @@
           style="width:100%; margin-top:8px"
           @click="handleRegister"
         >
-          注册
+          {{ $t('auth.registerBtn') }}
         </el-button>
       </el-form>
 
       <div class="login-link">
-        已有账号？<router-link :to="{ name: 'login' }">返回登录</router-link>
+        <router-link :to="{ name: 'login' }">{{ $t('auth.toLogin') }}</router-link>
+      </div>
+      <div class="lang-row">
+        <LangSwitch />
       </div>
     </div>
   </div>
@@ -72,8 +75,11 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
+import LangSwitch from '@/components/LangSwitch.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const formRef = ref(null)
 const loading = ref(false)
@@ -87,19 +93,19 @@ const form = reactive({
 
 const rules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 30, message: '用户名长度须在 3~30 个字符之间', trigger: 'blur' }
+    { required: true, message: () => t('auth.usernameRequired'), trigger: 'blur' },
+    { min: 3, max: 30, message: () => t('auth.usernameLength'), trigger: 'blur' }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于 6 位', trigger: 'blur' }
+    { required: true, message: () => t('auth.passwordRequired'), trigger: 'blur' },
+    { min: 6, message: () => t('auth.passwordMinLength'), trigger: 'blur' }
   ],
   confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
+    { required: true, message: () => t('auth.confirmPasswordRequired'), trigger: 'blur' },
     {
       validator: (_rule, value, callback) => {
         if (value !== form.password) {
-          callback(new Error('两次输入的密码不一致'))
+          callback(new Error(t('auth.passwordMismatch')))
         } else {
           callback()
         }
@@ -108,7 +114,7 @@ const rules = {
     }
   ],
   role: [
-    { required: true, message: '请选择角色', trigger: 'change' }
+    { required: true, message: () => t('auth.roleRequired'), trigger: 'change' }
   ]
 }
 
@@ -119,7 +125,7 @@ async function handleRegister() {
   loading.value = true
   try {
     await authApi.register(form.username, form.password, form.confirmPassword, form.role)
-    ElMessage.success('注册成功，请登录')
+    ElMessage.success(t('auth.registerSuccessLogin'))
     router.push({ name: 'login' })
   } catch {
     // 错误消息已由 http 拦截器统一处理
@@ -177,5 +183,10 @@ async function handleRegister() {
 
 .login-link a:hover {
   text-decoration: underline;
+}
+
+.lang-row {
+  text-align: center;
+  margin-top: 12px;
 }
 </style>

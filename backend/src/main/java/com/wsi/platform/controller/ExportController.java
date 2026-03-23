@@ -1,5 +1,6 @@
 package com.wsi.platform.controller;
 
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.common.Result;
 import com.wsi.platform.entity.ExportTask;
 import com.wsi.platform.service.ExportService;
@@ -24,6 +25,7 @@ import java.util.List;
 public class ExportController {
 
     private final ExportService exportService;
+    private final MessageUtil messageUtil;
 
     @PostMapping("/api/slides/{slideId}/export")
     public Result<ExportTask> startExport(@PathVariable Long slideId,
@@ -52,7 +54,7 @@ public class ExportController {
     @PostMapping("/api/export/batch")
     public Result<ExportTask> batchExport(@RequestBody BatchExportRequest req) {
         if (req.getSlideIds() == null || req.getSlideIds().isEmpty())
-            return Result.error(400, "slideIds 不能为空");
+            return Result.error(400, messageUtil.msg("error.export.slideIdsEmpty"));
         try {
             String format = req.getFormat() != null ? req.getFormat() : "COCO";
             Integer patchSize = req.getPatchSize() != null ? req.getPatchSize() : 256;

@@ -3,14 +3,14 @@
     <div class="login-box">
       <div class="login-header">
         <h1 class="logo">WSI Platform</h1>
-        <p class="subtitle">全切片图像标注平台</p>
+        <p class="subtitle">{{ $t('app.subtitle') }}</p>
       </div>
 
       <el-form :model="form" @submit.prevent="handleLogin" label-width="0">
         <el-form-item>
           <el-input
             v-model="form.username"
-            placeholder="用户名"
+            :placeholder="$t('auth.username')"
             size="large"
             :prefix-icon="User"
             autocomplete="username"
@@ -19,7 +19,7 @@
         <el-form-item>
           <el-input
             v-model="form.password"
-            placeholder="密码"
+            :placeholder="$t('auth.password')"
             size="large"
             type="password"
             :prefix-icon="Lock"
@@ -35,11 +35,14 @@
           style="width:100%; margin-top:8px"
           @click="handleLogin"
         >
-          登录
+          {{ $t('auth.loginBtn') }}
         </el-button>
       </el-form>
       <div class="register-link">
-        没有账号？<router-link :to="{ name: 'register' }">立即注册</router-link>
+        <router-link :to="{ name: 'register' }">{{ $t('auth.toRegister') }}</router-link>
+      </div>
+      <div class="lang-row">
+        <LangSwitch />
       </div>
     </div>
   </div>
@@ -50,9 +53,12 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import { useUserStore } from '@/stores/userStore'
+import LangSwitch from '@/components/LangSwitch.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -61,14 +67,14 @@ const loading = ref(false)
 
 async function handleLogin() {
   if (!form.username || !form.password) {
-    ElMessage.warning('请输入用户名和密码')
+    ElMessage.warning(t('auth.usernamePasswordRequired'))
     return
   }
   loading.value = true
   try {
     const res = await authApi.login(form.username, form.password)
     userStore.setAuth(res.data.token, res.data.user)
-    ElMessage.success(`欢迎，${res.data.user.username}！`)
+    ElMessage.success(t('auth.welcomeUser', { name: res.data.user.username }))
     if (res.data.user.role === 'REVIEWER') {
       router.replace({ name: 'reviewDashboard' })
     } else {
@@ -128,5 +134,10 @@ async function handleLogin() {
 
 .register-link a:hover {
   text-decoration: underline;
+}
+
+.lang-row {
+  text-align: center;
+  margin-top: 12px;
 }
 </style>

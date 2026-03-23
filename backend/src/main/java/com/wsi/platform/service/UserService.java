@@ -1,6 +1,7 @@
 package com.wsi.platform.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.entity.User;
 import com.wsi.platform.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final MessageUtil messageUtil;
 
     public User findByUsername(String username) {
         return userMapper.selectOne(
@@ -46,10 +48,10 @@ public class UserService {
         if (user == null) return null;
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) return null;
         if ("PENDING".equals(user.getStatus())) {
-            throw new IllegalStateException("账号待审批，请联系管理员激活");
+            throw new IllegalStateException(messageUtil.msg("error.account.pending"));
         }
         if ("DISABLED".equals(user.getStatus())) {
-            throw new IllegalStateException("账号已被禁用，请联系管理员");
+            throw new IllegalStateException(messageUtil.msg("error.account.disabled"));
         }
         return user;
     }
@@ -60,22 +62,22 @@ public class UserService {
      */
     public User register(String username, String rawPassword, String confirmPassword, String role) {
         if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("用户名不能为空");
+            throw new IllegalArgumentException(messageUtil.msg("error.username.empty"));
         }
         if (username.length() < 3 || username.length() > 30) {
-            throw new IllegalArgumentException("用户名长度须在 3~30 个字符之间");
+            throw new IllegalArgumentException(messageUtil.msg("error.username.length"));
         }
         if (rawPassword == null || rawPassword.length() < 6) {
-            throw new IllegalArgumentException("密码长度不能少于 6 位");
+            throw new IllegalArgumentException(messageUtil.msg("error.password.length"));
         }
         if (!rawPassword.equals(confirmPassword)) {
-            throw new IllegalArgumentException("两次输入的密码不一致");
+            throw new IllegalArgumentException(messageUtil.msg("error.password.mismatch"));
         }
         if (!"ANNOTATOR".equals(role) && !"REVIEWER".equals(role)) {
-            throw new IllegalArgumentException("角色只能是 ANNOTATOR 或 REVIEWER");
+            throw new IllegalArgumentException(messageUtil.msg("error.role.invalid"));
         }
         if (findByUsername(username) != null) {
-            throw new IllegalArgumentException("用户名已存在");
+            throw new IllegalArgumentException(messageUtil.msg("error.username.exists"));
         }
         User user = new User();
         user.setUsername(username);
@@ -116,14 +118,14 @@ public class UserService {
 
     public void approveUser(Long id) {
         User user = userMapper.selectById(id);
-        if (user == null) throw new IllegalArgumentException("用户不存在");
+        if (user == null) throw new IllegalArgumentException(messageUtil.msg("error.user.notfound"));
         user.setStatus("ACTIVE");
         userMapper.updateById(user);
     }
 
     public void disableUser(Long id) {
         User user = userMapper.selectById(id);
-        if (user == null) throw new IllegalArgumentException("用户不存在");
+        if (user == null) throw new IllegalArgumentException(messageUtil.msg("error.user.notfound"));
         user.setStatus("DISABLED");
         userMapper.updateById(user);
     }

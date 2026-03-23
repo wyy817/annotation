@@ -7,9 +7,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
+
+import java.util.Locale;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,6 +27,13 @@ public class AppConfig implements WebMvcConfigurer {
 
     public AppConfig(AuthInterceptor authInterceptor) {
         this.authInterceptor = authInterceptor;
+    }
+
+    @Bean
+    public LocaleResolver localeResolver() {
+        AcceptHeaderLocaleResolver resolver = new AcceptHeaderLocaleResolver();
+        resolver.setDefaultLocale(Locale.ENGLISH);
+        return resolver;
     }
 
     @Bean

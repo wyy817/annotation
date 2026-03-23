@@ -5,28 +5,29 @@
       <div class="header-left">
         <h1 class="logo">WSI Platform</h1>
         <el-divider direction="vertical" />
-        <span class="page-title">审核仪表板</span>
+        <span class="page-title">{{ $t('review.dashboard') }}</span>
       </div>
       <div class="header-right">
         <span class="user-info">
-          <el-tag type="warning" size="small">审核者</el-tag>
+          <el-tag type="warning" size="small">{{ $t('review.reviewerTag') }}</el-tag>
           {{ userStore.user?.username }}
         </span>
         <NotificationBell />
-        <el-button size="small" @click="$router.push({ name: 'admin' })">用户管理</el-button>
-        <el-button size="small" @click="handleLogout">退出登录</el-button>
+        <LangSwitch />
+        <el-button size="small" @click="$router.push({ name: 'admin' })">{{ $t('review.userManagementBtn') }}</el-button>
+        <el-button size="small" @click="handleLogout">{{ $t('auth.logout') }}</el-button>
       </div>
     </header>
 
     <!-- Stats tabs -->
     <el-tabs v-model="activeTab" class="main-tabs" @tab-change="onTabChange">
       <!-- Pending Review Queue -->
-      <el-tab-pane label="待审核队列" name="pending">
+      <el-tab-pane :label="$t('review.pendingQueue')" name="pending">
         <div class="toolbar">
-          <el-button :icon="Refresh" @click="loadPending">刷新</el-button>
+          <el-button :icon="Refresh" @click="loadPending">{{ $t('common.refresh') }}</el-button>
         </div>
 
-        <el-empty v-if="!pending.length" description="暂无待审核切片" class="empty-state" />
+        <el-empty v-if="!pending.length" :description="$t('review.noPendingSlides')" class="empty-state" />
 
         <div v-else class="pending-list">
           <div v-for="s in pending" :key="s.id" class="pending-card">
@@ -36,7 +37,7 @@
             <div class="card-info">
               <p class="card-filename">{{ s.fileName }}</p>
               <p class="card-meta">
-                提交者：<strong>{{ annotatorName(s.annotatorId) }}</strong>
+                {{ $t('review.submittedBy') }}<strong>{{ annotatorName(s.annotatorId) }}</strong>
               </p>
             </div>
             <div class="card-actions">
@@ -45,35 +46,35 @@
                 size="small"
                 :loading="approving === s.id"
                 @click="handleApprove(s)"
-              >通过</el-button>
+              >{{ $t('review.approveBtn') }}</el-button>
               <el-button
                 type="danger"
                 size="small"
                 :loading="rejecting === s.id"
                 @click="openRejectDialog(s)"
-              >拒绝</el-button>
+              >{{ $t('review.rejectBtn') }}</el-button>
               <el-button
                 size="small"
                 @click="router.push({ name: 'slideViewer', params: { id: s.id } })"
-              >查看标注</el-button>
+              >{{ $t('review.viewAnnotations') }}</el-button>
             </div>
           </div>
         </div>
       </el-tab-pane>
 
       <!-- Approved Slides (export) -->
-      <el-tab-pane label="已通过切片" name="approved">
+      <el-tab-pane :label="$t('review.approvedSlides')" name="approved">
         <div class="toolbar">
-          <el-button :icon="Refresh" @click="loadApproved">刷新</el-button>
+          <el-button :icon="Refresh" @click="loadApproved">{{ $t('common.refresh') }}</el-button>
           <el-button
             type="primary"
             :icon="Download"
             :disabled="!approved.length"
             @click="showBatchExport = true"
-          >批量导出</el-button>
+          >{{ $t('review.batchExport') }}</el-button>
         </div>
 
-        <el-empty v-if="!approved.length" description="暂无已通过切片" class="empty-state" />
+        <el-empty v-if="!approved.length" :description="$t('review.noApprovedSlides')" class="empty-state" />
 
         <div v-else class="pending-list">
           <div v-for="s in approved" :key="s.id" class="pending-card">
@@ -83,7 +84,7 @@
             <div class="card-info">
               <p class="card-filename">{{ s.fileName }}</p>
               <p class="card-meta">
-                标注者：<strong>{{ annotatorName(s.annotatorId) }}</strong>
+                {{ $t('review.annotatedBy') }}<strong>{{ annotatorName(s.annotatorId) }}</strong>
               </p>
             </div>
             <div class="card-actions">
@@ -92,38 +93,38 @@
                 size="small"
                 :icon="Download"
                 @click="openSingleExport(s)"
-              >导出</el-button>
+              >{{ $t('review.exportBtn') }}</el-button>
               <el-button
                 size="small"
                 @click="router.push({ name: 'slideViewer', params: { id: s.id } })"
-              >查看标注</el-button>
+              >{{ $t('review.viewAnnotations') }}</el-button>
             </div>
           </div>
         </div>
       </el-tab-pane>
 
       <!-- Audit Log -->
-      <el-tab-pane label="审核日志" name="auditLog">
+      <el-tab-pane :label="$t('review.auditLog')" name="auditLog">
         <div class="toolbar" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-          <el-select v-model="auditFilter.action" placeholder="操作类型" clearable style="width:140px" @change="loadAuditLogs(true)">
-            <el-option label="保存标注" value="SAVE" />
-            <el-option label="提交审核" value="SUBMIT" />
-            <el-option label="重新提交" value="RESUBMIT" />
-            <el-option label="审核通过" value="APPROVE" />
-            <el-option label="审核拒绝" value="REJECT" />
-            <el-option label="导入标注" value="IMPORT" />
+          <el-select v-model="auditFilter.action" :placeholder="$t('review.auditFilterAction')" clearable style="width:140px" @change="loadAuditLogs(true)">
+            <el-option :label="$t('review.auditActionSave')" value="SAVE" />
+            <el-option :label="$t('review.auditActionSubmit')" value="SUBMIT" />
+            <el-option :label="$t('review.auditActionResubmit')" value="RESUBMIT" />
+            <el-option :label="$t('review.auditActionApprove')" value="APPROVE" />
+            <el-option :label="$t('review.auditActionReject')" value="REJECT" />
+            <el-option :label="$t('review.auditActionImport')" value="IMPORT" />
           </el-select>
           <el-date-picker
             v-model="auditFilter.dateRange"
             type="datetimerange"
-            range-separator="至"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
+            :range-separator="$t('review.auditDateSep')"
+            :start-placeholder="$t('review.auditDateFrom')"
+            :end-placeholder="$t('review.auditDateTo')"
             value-format="YYYY-MM-DD HH:mm:ss"
             style="width:360px"
             @change="loadAuditLogs(true)"
           />
-          <el-button :icon="Refresh" @click="loadAuditLogs(true)">刷新</el-button>
+          <el-button :icon="Refresh" @click="loadAuditLogs(true)">{{ $t('common.refresh') }}</el-button>
         </div>
 
         <el-table
@@ -132,21 +133,21 @@
           border
           style="width:100%;margin-top:4px"
         >
-          <el-table-column prop="createdAt" label="时间" width="170">
+          <el-table-column prop="createdAt" :label="$t('review.auditColTime')" width="170">
             <template #default="{ row }">
               {{ formatAuditTime(row.createdAt) }}
             </template>
           </el-table-column>
-          <el-table-column prop="username" label="操作者" width="120" />
-          <el-table-column prop="action" label="操作" width="110">
+          <el-table-column prop="username" :label="$t('review.auditColUser')" width="120" />
+          <el-table-column prop="action" :label="$t('review.auditColAction')" width="110">
             <template #default="{ row }">
               <el-tag :type="auditActionType[row.action] || ''" size="small" effect="plain">
-                {{ auditActionLabel[row.action] ?? row.action }}
+                {{ auditActionLabel(row.action) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="slideId" label="切片 ID" width="90" align="center" />
-          <el-table-column label="详情" min-width="200">
+          <el-table-column prop="slideId" :label="$t('review.auditColSlideId')" width="90" align="center" />
+          <el-table-column :label="$t('review.auditColDetail')" min-width="200">
             <template #default="{ row }">
               <span class="audit-detail">{{ formatAuditDetail(row.detail) }}</span>
             </template>
@@ -167,40 +168,40 @@
       </el-tab-pane>
 
       <!-- Annotation Statistics -->
-      <el-tab-pane label="标注统计" name="statistics">
+      <el-tab-pane :label="$t('review.statistics')" name="statistics">
         <AnnotationStatsPanel v-if="activeTab === 'statistics'" />
       </el-tab-pane>
 
       <!-- Annotator Progress -->
-      <el-tab-pane label="标注者进度" name="progress">
+      <el-tab-pane :label="$t('review.annotatorProgress')" name="progress">
         <div class="toolbar">
-          <el-button :icon="Refresh" @click="loadAnnotators">刷新</el-button>
+          <el-button :icon="Refresh" @click="loadAnnotators">{{ $t('common.refresh') }}</el-button>
         </div>
 
         <el-table :data="annotators" border style="width:100%">
-          <el-table-column prop="username" label="标注者" width="140" />
-          <el-table-column prop="total" label="总切片" width="80" align="center" />
-          <el-table-column prop="inProgress" label="标注中" width="80" align="center">
+          <el-table-column prop="username" :label="$t('review.progressColAnnotator')" width="140" />
+          <el-table-column prop="total" :label="$t('review.progressColTotal')" width="80" align="center" />
+          <el-table-column prop="inProgress" :label="$t('review.progressColInProgress')" width="80" align="center">
             <template #default="{ row }">
               <el-tag size="small" type="info">{{ row.inProgress }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="pendingReview" label="待审核" width="80" align="center">
+          <el-table-column prop="pendingReview" :label="$t('review.progressColPending')" width="80" align="center">
             <template #default="{ row }">
               <el-tag size="small" type="warning">{{ row.pendingReview }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="approved" label="已通过" width="80" align="center">
+          <el-table-column prop="approved" :label="$t('review.progressColApproved')" width="80" align="center">
             <template #default="{ row }">
               <el-tag size="small" type="success">{{ row.approved }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="rejected" label="已拒绝" width="80" align="center">
+          <el-table-column prop="rejected" :label="$t('review.progressColRejected')" width="80" align="center">
             <template #default="{ row }">
               <el-tag size="small" type="danger">{{ row.rejected }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="完成率" min-width="120">
+          <el-table-column :label="$t('review.progressColCompletion')" min-width="120">
             <template #default="{ row }">
               <el-progress
                 v-if="row.total > 0"
@@ -210,12 +211,12 @@
               <span v-else style="color:#c0c4cc">—</span>
             </template>
           </el-table-column>
-          <el-table-column label="备注" min-width="160">
+          <el-table-column :label="$t('review.progressColRemark')" min-width="160">
             <template #default="{ row }">
               <el-input
                 v-model="row.remark"
                 size="small"
-                placeholder="添加备注..."
+                :placeholder="$t('review.progressRemarkPlaceholder')"
                 @change="saveRemark(row)"
               />
             </template>
@@ -231,26 +232,26 @@
     <BatchExportDialog v-model="showBatchExport" :slides="approved" />
 
     <!-- Reject dialog -->
-    <el-dialog v-model="showReject" title="拒绝标注" width="420px">
+    <el-dialog v-model="showReject" :title="$t('review.rejectDialogTitle')" width="420px">
       <p style="margin-bottom:12px; color:#606266">
-        拒绝切片 <strong>{{ rejectTarget?.fileName }}</strong>，请填写拒绝意见：
+        {{ $t('review.rejectDialogDesc', { name: rejectTarget?.fileName }) }}
       </p>
       <el-input
         v-model="rejectComment"
         type="textarea"
         :rows="4"
-        placeholder="请输入拒绝原因，标注者将看到该意见..."
+        :placeholder="$t('review.rejectPlaceholder')"
         maxlength="500"
         show-word-limit
       />
       <template #footer>
-        <el-button @click="showReject = false">取消</el-button>
+        <el-button @click="showReject = false">{{ $t('common.cancel') }}</el-button>
         <el-button
           type="danger"
           :loading="rejecting === rejectTarget?.id"
           :disabled="!rejectComment.trim()"
           @click="confirmReject"
-        >确认拒绝</el-button>
+        >{{ $t('review.confirmReject') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -260,8 +261,10 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { Refresh, Download } from '@element-plus/icons-vue'
 import NotificationBell from '@/components/NotificationBell.vue'
+import LangSwitch from '@/components/LangSwitch.vue'
 import { reviewApi } from '@/api/review'
 import { auditLogApi } from '@/api/auditLog'
 import { useUserStore } from '@/stores/userStore'
@@ -269,6 +272,7 @@ import ExportDialog from '@/components/ExportDialog.vue'
 import BatchExportDialog from '@/components/BatchExportDialog.vue'
 import AnnotationStatsPanel from '@/components/AnnotationStatsPanel.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -322,7 +326,7 @@ async function saveRemark(row) {
   try {
     await reviewApi.updateAnnotatorRemark(row.id, row.remark || '')
   } catch {
-    ElMessage.error('备注保存失败')
+    ElMessage.error(t('review.remarkSaveFailed'))
   }
 }
 
@@ -335,7 +339,7 @@ async function handleApprove(slide) {
   approving.value = slide.id
   try {
     await reviewApi.approve(slide.id)
-    ElMessage.success(`「${slide.fileName}」已通过`)
+    ElMessage.success(t('review.approvedMsg', { name: slide.fileName }))
     pending.value = pending.value.filter(s => s.id !== slide.id)
     loadApproved()
     loadAnnotators()
@@ -355,7 +359,7 @@ async function confirmReject() {
   rejecting.value = rejectTarget.value.id
   try {
     await reviewApi.reject(rejectTarget.value.id, rejectComment.value)
-    ElMessage.success(`「${rejectTarget.value.fileName}」已拒绝`)
+    ElMessage.success(t('review.rejectedMsg', { name: rejectTarget.value.fileName }))
     pending.value = pending.value.filter(s => s.id !== rejectTarget.value.id)
     showReject.value = false
     loadAnnotators()
@@ -377,13 +381,13 @@ const auditCurrentPage = ref(1)
 const auditPageSize    = ref(20)
 const auditFilter      = ref({ action: '', dateRange: null })
 
-const auditActionLabel = {
-  SAVE:     '保存标注',
-  SUBMIT:   '提交审核',
-  RESUBMIT: '重新提交',
-  APPROVE:  '审核通过',
-  REJECT:   '审核拒绝',
-  IMPORT:   '导入标注'
+const auditActionKeys = {
+  SAVE:     'review.auditActionSave',
+  SUBMIT:   'review.auditActionSubmit',
+  RESUBMIT: 'review.auditActionResubmit',
+  APPROVE:  'review.auditActionApprove',
+  REJECT:   'review.auditActionReject',
+  IMPORT:   'review.auditActionImport',
 }
 const auditActionType = {
   SAVE:     '',
@@ -392,6 +396,11 @@ const auditActionType = {
   APPROVE:  'success',
   REJECT:   'danger',
   IMPORT:   'info'
+}
+
+function auditActionLabel(action) {
+  const key = auditActionKeys[action]
+  return key ? t(key) : action
 }
 
 function formatAuditTime(dt) {

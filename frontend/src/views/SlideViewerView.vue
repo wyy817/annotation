@@ -4,20 +4,20 @@
     <header class="viewer-header">
       <!-- Left: back + filename -->
       <div class="header-left">
-        <el-button :icon="ArrowLeft" text class="back-btn" @click="goBack">文件浏览器</el-button>
+        <el-button :icon="ArrowLeft" text class="back-btn" @click="goBack">{{ $t('fileBrowser.title') }}</el-button>
         <el-divider direction="vertical" />
-        <span class="slide-name" :title="slide?.fileName">{{ slide?.fileName ?? '加载中...' }}</span>
+        <span class="slide-name" :title="slide?.fileName">{{ slide?.fileName ?? $t('common.loading') }}</span>
       </div>
 
       <!-- Center: toolbar (only after image is loaded) -->
       <div class="header-tools" v-if="!loading && !errorMsg">
         <!-- View tools -->
         <el-button-group>
-          <el-tooltip content="平移/查看 (V)" placement="bottom">
-            <el-button size="small" :type="currentTool==='pan' ? 'primary' : ''" @click="setTool('pan')">平移</el-button>
+          <el-tooltip :content="$t('viewer.tooltipPan')" placement="bottom">
+            <el-button size="small" :type="currentTool==='pan' ? 'primary' : ''" @click="setTool('pan')">{{ $t('viewer.toolPan') }}</el-button>
           </el-tooltip>
-          <el-tooltip content="选择/删除标注" placement="bottom">
-            <el-button size="small" :type="currentTool==='select' ? 'primary' : ''" @click="setTool('select')">选择</el-button>
+          <el-tooltip :content="$t('viewer.tooltipSelect')" placement="bottom">
+            <el-button size="small" :type="currentTool==='select' ? 'primary' : ''" @click="setTool('select')">{{ $t('viewer.toolSelect') }}</el-button>
           </el-tooltip>
         </el-button-group>
 
@@ -26,19 +26,19 @@
         <!-- Draw tools (annotator only) -->
         <template v-if="!isReviewer">
           <el-button-group>
-            <el-tooltip content="画笔 (B)" placement="bottom">
-              <el-button size="small" :type="currentTool==='brush' ? 'primary' : ''" @click="setTool('brush')">画笔</el-button>
+            <el-tooltip :content="$t('viewer.tooltipBrush')" placement="bottom">
+              <el-button size="small" :type="currentTool==='brush' ? 'primary' : ''" @click="setTool('brush')">{{ $t('viewer.toolBrush') }}</el-button>
             </el-tooltip>
-            <el-tooltip content="推拉边缘 (N) Alt+滚轮调整大小" placement="bottom">
-              <el-button size="small" :type="currentTool==='nudge' ? 'primary' : ''" @click="setTool('nudge')">推拉</el-button>
+            <el-tooltip :content="$t('viewer.tooltipNudge')" placement="bottom">
+              <el-button size="small" :type="currentTool==='nudge' ? 'primary' : ''" @click="setTool('nudge')">{{ $t('viewer.toolNudge') }}</el-button>
             </el-tooltip>
-            <el-tooltip content="橡皮擦 (E) Alt+滚轮调整大小" placement="bottom">
-              <el-button size="small" :type="currentTool==='eraser' ? 'primary' : ''" @click="setTool('eraser')">橡皮擦</el-button>
+            <el-tooltip :content="$t('viewer.tooltipEraser')" placement="bottom">
+              <el-button size="small" :type="currentTool==='eraser' ? 'primary' : ''" @click="setTool('eraser')">{{ $t('viewer.toolEraser') }}</el-button>
             </el-tooltip>
-            <el-tooltip content="点标注 (P)" placement="bottom">
-              <el-button size="small" :type="currentTool==='point' ? 'primary' : ''" @click="setTool('point')">点</el-button>
+            <el-tooltip :content="$t('viewer.tooltipPoint')" placement="bottom">
+              <el-button size="small" :type="currentTool==='point' ? 'primary' : ''" @click="setTool('point')">{{ $t('viewer.toolPoint') }}</el-button>
             </el-tooltip>
-            <el-tooltip content="AI 辅助分割 (M)" placement="bottom">
+            <el-tooltip :content="$t('viewer.tooltipSam')" placement="bottom">
               <el-button size="small" :type="currentTool==='sam' ? 'primary' : ''" @click="setTool('sam')">
                 <el-icon><MagicStick /></el-icon>
               </el-button>
@@ -48,12 +48,12 @@
           <el-divider direction="vertical" />
 
           <!-- Undo / redo -->
-          <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
+          <el-tooltip :content="$t('viewer.tooltipUndo')" placement="bottom">
             <el-button size="small" :disabled="historyIndex <= 0" @click="undo">
               <el-icon><RefreshLeft /></el-icon>
             </el-button>
           </el-tooltip>
-          <el-tooltip content="重做 (Ctrl+Y)" placement="bottom">
+          <el-tooltip :content="$t('viewer.tooltipRedo')" placement="bottom">
             <el-button size="small" :disabled="historyIndex >= history.length - 1" @click="redo">
               <el-icon><RefreshRight /></el-icon>
             </el-button>
@@ -67,7 +67,7 @@
             :loading="saving"
             :type="isDirty ? 'warning' : 'default'"
             @click="saveAnnotations"
-          >{{ saving ? '保存中...' : isDirty ? '保存*' : '已保存' }}</el-button>
+          >{{ saving ? $t('viewer.saving') : isDirty ? $t('viewer.saveDirty') : $t('viewer.saved') }}</el-button>
 
           <el-divider direction="vertical" />
         </template>
@@ -79,7 +79,7 @@
             size="small"
             type="warning"
             disabled
-          >待审核中</el-button>
+          >{{ $t('viewer.pendingReview') }}</el-button>
           <el-button
             v-else
             size="small"
@@ -87,44 +87,44 @@
             :disabled="slide?.annoStatus === 'NOT_STARTED'"
             :type="slide?.reviewStatus === 'REJECTED' ? 'warning' : slide?.reviewStatus === 'APPROVED' ? 'success' : 'default'"
             @click="markDone"
-          >{{ slide?.reviewStatus === 'REJECTED' ? '重新提交' : slide?.reviewStatus === 'APPROVED' ? '重新提交审核' : '提交审核' }}</el-button>
+          >{{ slide?.reviewStatus === 'REJECTED' ? $t('viewer.resubmit') : slide?.reviewStatus === 'APPROVED' ? $t('viewer.resubmitReview') : $t('viewer.submitReview') }}</el-button>
         </template>
 
         <!-- Reviewer: approve / reject -->
         <template v-if="isReviewer && slide?.reviewStatus === 'PENDING_REVIEW'">
           <el-divider direction="vertical" />
-          <el-button size="small" type="success" :loading="reviewing === 'approve'" @click="handleApprove">通过</el-button>
-          <el-button size="small" type="danger"  :loading="reviewing === 'reject'"  @click="handleRejectPrompt">拒绝</el-button>
+          <el-button size="small" type="success" :loading="reviewing === 'approve'" @click="handleApprove">{{ $t('review.approveBtn') }}</el-button>
+          <el-button size="small" type="danger"  :loading="reviewing === 'reject'"  @click="handleRejectPrompt">{{ $t('review.rejectBtn') }}</el-button>
         </template>
       </div>
 
       <!-- Right: export + zoom controls -->
       <div class="header-right">
         <template v-if="!isReviewer">
-          <el-tooltip content="导入标注 (JSON)" placement="bottom">
+          <el-tooltip :content="$t('viewer.tooltipImport')" placement="bottom">
             <el-button
               size="small"
               :icon="Upload"
               :disabled="loading || !!errorMsg"
               @click="showImportDialog = true"
-            >导入</el-button>
+            >{{ $t('common.import') }}</el-button>
           </el-tooltip>
           <el-divider direction="vertical" />
         </template>
-        <el-tooltip content="导出数据集 (ZIP)" placement="bottom">
+        <el-tooltip :content="$t('viewer.tooltipExport')" placement="bottom">
           <el-button
             size="small"
             :icon="Download"
             :disabled="loading || !!errorMsg"
             @click="showExportDialog = true"
-          >导出</el-button>
+          >{{ $t('common.export') }}</el-button>
         </el-tooltip>
         <el-divider direction="vertical" />
         <span class="zoom-badge">{{ zoomLabel }}</span>
         <el-button-group>
-          <el-button size="small" @click="zoomIn"  title="放大 (+)"><el-icon><Plus /></el-icon></el-button>
-          <el-button size="small" @click="zoomFit" title="适合屏幕 (H)">适合</el-button>
-          <el-button size="small" @click="zoomOut" title="缩小 (-)"><el-icon><Minus /></el-icon></el-button>
+          <el-button size="small" @click="zoomIn"  :title="$t('viewer.zoomInTitle')"><el-icon><Plus /></el-icon></el-button>
+          <el-button size="small" @click="zoomFit" :title="$t('viewer.fitScreen')">{{ $t('viewer.fitScreen') }}</el-button>
+          <el-button size="small" @click="zoomOut" :title="$t('viewer.zoomOutTitle')"><el-icon><Minus /></el-icon></el-button>
         </el-button-group>
       </div>
     </header>
@@ -135,7 +135,7 @@
       class="reject-banner"
     >
       <el-icon style="margin-right:6px"><WarningFilled /></el-icon>
-      <strong>审核未通过：</strong>{{ slide.reviewerComment }}
+      <strong>{{ $t('viewer.rejectedBanner') }}</strong>{{ slide.reviewerComment }}
     </div>
 
     <!-- ── Export dialog ──────────────────────────────────────────────────── -->
@@ -145,17 +145,17 @@
     <!-- ── Version history drawer ─────────────────────────────────────────── -->
     <el-drawer
       v-model="showVersionDrawer"
-      title="版本历史"
+      :title="$t('viewer.versionHistory')"
       direction="rtl"
       size="360px"
       append-to-body
     >
       <div v-if="versionsLoading" class="ver-loading">
         <el-icon class="loading-spin"><Loading /></el-icon>
-        <span>加载中...</span>
+        <span>{{ $t('common.loading') }}</span>
       </div>
       <div v-else-if="versions.length === 0" class="ver-empty">
-        暂无版本记录
+        {{ $t('viewer.noVersions') }}
       </div>
       <el-timeline v-else>
         <el-timeline-item
@@ -178,7 +178,7 @@
                 plain
                 class="ver-compare-btn"
                 @click="loadGhostVersion(ver)"
-              >{{ ghostVersionNum === ver.versionNumber ? '对比中' : '查看对比' }}</el-button>
+              >{{ ghostVersionNum === ver.versionNumber ? $t('viewer.comparing') : $t('viewer.viewCompare') }}</el-button>
             </div>
             <div v-if="ver.reviewerComment" class="ver-comment">
               "{{ ver.reviewerComment }}"
@@ -191,16 +191,16 @@
     <!-- ── Audit log drawer ───────────────────────────────────────────────── -->
     <el-drawer
       v-model="showAuditDrawer"
-      title="操作历史"
+      :title="$t('viewer.auditHistory')"
       direction="rtl"
       size="400px"
       append-to-body
     >
       <div v-if="auditLoading" class="ver-loading">
         <el-icon class="loading-spin"><Loading /></el-icon>
-        <span>加载中...</span>
+        <span>{{ $t('common.loading') }}</span>
       </div>
-      <div v-else-if="auditLogs.length === 0" class="ver-empty">暂无操作记录</div>
+      <div v-else-if="auditLogs.length === 0" class="ver-empty">{{ $t('viewer.noAuditLogs') }}</div>
       <el-timeline v-else>
         <el-timeline-item
           v-for="log in auditLogs"
@@ -221,39 +221,39 @@
         </el-timeline-item>
       </el-timeline>
       <div v-if="!auditLoading && auditHasMore" style="text-align:center;margin-top:12px">
-        <el-button size="small" :loading="auditLoadingMore" @click="loadMoreAudit">加载更多</el-button>
+        <el-button size="small" :loading="auditLoadingMore" @click="loadMoreAudit">{{ $t('viewer.loadMore') }}</el-button>
       </div>
     </el-drawer>
 
     <!-- ── Shortcut help dialog ────────────────────────────────────────── -->
-    <el-dialog v-model="showShortcutHelp" title="快捷键帮助" width="520px" append-to-body>
+    <el-dialog v-model="showShortcutHelp" :title="$t('viewer.shortcutHelp')" width="520px" append-to-body>
       <div class="shortcut-help-grid">
         <div class="shortcut-group">
-          <h4>工具切换</h4>
-          <div class="shortcut-row"><kbd>V</kbd><span>平移 / 查看</span></div>
-          <div class="shortcut-row"><kbd>B</kbd><span>画笔</span></div>
-          <div class="shortcut-row"><kbd>N</kbd><span>推拉边缘</span></div>
-          <div class="shortcut-row"><kbd>E</kbd><span>橡皮擦</span></div>
-          <div class="shortcut-row"><kbd>P</kbd><span>点标注</span></div>
-          <div class="shortcut-row"><kbd>M</kbd><span>AI 辅助分割（点/框模式）</span></div>
-          <div class="shortcut-row"><kbd>右键</kbd><span>AI模式：添加背景排除点（红）</span></div>
-          <div class="shortcut-row"><kbd>Esc</kbd><span>返回平移模式</span></div>
+          <h4>{{ $t('viewer.scToolSwitchTitle') }}</h4>
+          <div class="shortcut-row"><kbd>V</kbd><span>{{ $t('viewer.scPan') }}</span></div>
+          <div class="shortcut-row"><kbd>B</kbd><span>{{ $t('viewer.scBrush') }}</span></div>
+          <div class="shortcut-row"><kbd>N</kbd><span>{{ $t('viewer.scNudge') }}</span></div>
+          <div class="shortcut-row"><kbd>E</kbd><span>{{ $t('viewer.scEraser') }}</span></div>
+          <div class="shortcut-row"><kbd>P</kbd><span>{{ $t('viewer.scPoint') }}</span></div>
+          <div class="shortcut-row"><kbd>M</kbd><span>{{ $t('viewer.scSam') }}</span></div>
+          <div class="shortcut-row"><kbd>{{ $t('viewer.scRightClick') }}</kbd><span>{{ $t('viewer.scSamBg') }}</span></div>
+          <div class="shortcut-row"><kbd>Esc</kbd><span>{{ $t('viewer.scEsc') }}</span></div>
         </div>
         <div class="shortcut-group">
-          <h4>编辑操作</h4>
-          <div class="shortcut-row"><kbd>Ctrl + Z</kbd><span>撤销</span></div>
-          <div class="shortcut-row"><kbd>Ctrl + Y</kbd><span>重做</span></div>
-          <div class="shortcut-row"><kbd>Ctrl + S</kbd><span>保存</span></div>
-          <div class="shortcut-row"><kbd>Delete</kbd><span>删除选中标注</span></div>
-          <div class="shortcut-row"><kbd>Alt + 滚轮</kbd><span>调整画笔/橡皮擦大小</span></div>
+          <h4>{{ $t('viewer.scEditTitle') }}</h4>
+          <div class="shortcut-row"><kbd>Ctrl + Z</kbd><span>{{ $t('viewer.scUndo') }}</span></div>
+          <div class="shortcut-row"><kbd>Ctrl + Y</kbd><span>{{ $t('viewer.scRedo') }}</span></div>
+          <div class="shortcut-row"><kbd>Ctrl + S</kbd><span>{{ $t('viewer.scSave') }}</span></div>
+          <div class="shortcut-row"><kbd>Delete</kbd><span>{{ $t('viewer.scDelete') }}</span></div>
+          <div class="shortcut-row"><kbd>Alt + Scroll</kbd><span>{{ $t('viewer.scAdjustSize') }}</span></div>
         </div>
         <div class="shortcut-group">
-          <h4>视图导航</h4>
-          <div class="shortcut-row"><kbd>W A S D</kbd><span>平移画布</span></div>
-          <div class="shortcut-row"><kbd>方向键</kbd><span>平移画布</span></div>
-          <div class="shortcut-row"><kbd>+ / -</kbd><span>放大 / 缩小</span></div>
-          <div class="shortcut-row"><kbd>H</kbd><span>适合屏幕</span></div>
-          <div class="shortcut-row"><kbd>?</kbd><span>打开此帮助</span></div>
+          <h4>{{ $t('viewer.scViewTitle') }}</h4>
+          <div class="shortcut-row"><kbd>W A S D</kbd><span>{{ $t('viewer.scPanWASD') }}</span></div>
+          <div class="shortcut-row"><kbd>{{ $t('viewer.scArrowKeys') }}</kbd><span>{{ $t('viewer.scPanArrow') }}</span></div>
+          <div class="shortcut-row"><kbd>+ / -</kbd><span>{{ $t('viewer.scZoom') }}</span></div>
+          <div class="shortcut-row"><kbd>H</kbd><span>{{ $t('viewer.scFit') }}</span></div>
+          <div class="shortcut-row"><kbd>?</kbd><span>{{ $t('viewer.scHelp') }}</span></div>
         </div>
       </div>
     </el-dialog>
@@ -309,18 +309,18 @@
         <div class="right-dock" v-if="!loading && !errorMsg">
           <NotificationBell />
           <div class="dock-divider" />
-          <el-tooltip content="版本历史" placement="left">
+          <el-tooltip :content="$t('viewer.versionHistoryTooltip')" placement="left">
             <button class="dock-btn" @click="openVersionHistory">
               <el-icon><Clock /></el-icon>
             </button>
           </el-tooltip>
-          <el-tooltip content="操作历史" placement="left">
+          <el-tooltip :content="$t('viewer.auditHistoryTooltip')" placement="left">
             <button class="dock-btn" @click="openAuditLog">
               <el-icon><Document /></el-icon>
             </button>
           </el-tooltip>
           <div class="dock-divider" />
-          <el-tooltip content="快捷键帮助 (?)" placement="left">
+          <el-tooltip :content="$t('viewer.shortcutHelpTooltip')" placement="left">
             <button class="dock-btn" @click="showShortcutHelp = true">
               <el-icon><QuestionFilled /></el-icon>
             </button>
@@ -336,11 +336,11 @@
             <!-- Mode toggle -->
             <template v-if="!samLoading">
               <el-button-group size="small" style="margin-right:4px">
-                <el-tooltip content="点提示：左键目标，右键背景" placement="top">
-                  <el-button :type="samMode==='point' ? 'primary' : ''" @click="setSamMode('point')">点</el-button>
+                <el-tooltip :content="$t('viewer.samPointTooltip')" placement="top">
+                  <el-button :type="samMode==='point' ? 'primary' : ''" @click="setSamMode('point')">{{ $t('viewer.samModePoint') }}</el-button>
                 </el-tooltip>
-                <el-tooltip content="框提示：拖拽框选目标区域" placement="top">
-                  <el-button :type="samMode==='box' ? 'primary' : ''" @click="setSamMode('box')">框</el-button>
+                <el-tooltip :content="$t('viewer.samBoxTooltip')" placement="top">
+                  <el-button :type="samMode==='box' ? 'primary' : ''" @click="setSamMode('box')">{{ $t('viewer.samModeBox') }}</el-button>
                 </el-tooltip>
               </el-button-group>
               <el-divider direction="vertical" style="border-color:#555;margin:0 6px;" />
@@ -348,28 +348,28 @@
 
             <template v-if="samLoading">
               <el-icon class="loading-spin" style="font-size:14px"><Loading /></el-icon>
-              <span class="sam-status-text">AI 推理中...</span>
+              <span class="sam-status-text">{{ $t('viewer.samInferring') }}</span>
             </template>
             <template v-else-if="samPreview">
-              <span class="sam-status-text">置信度 {{ (samPreview.score * 100).toFixed(1) }}%</span>
+              <span class="sam-status-text">{{ $t('viewer.samConfidence', { score: (samPreview.score * 100).toFixed(1) }) }}</span>
               <el-divider direction="vertical" style="border-color:#555;margin:0 4px;" />
-              <el-button size="small" type="success" @click="samAccept">✓ 接受</el-button>
-              <el-button size="small" type="danger" plain @click="samReject">✗ 拒绝</el-button>
-              <el-button size="small" plain @click="samClear">重选</el-button>
+              <el-button size="small" type="success" @click="samAccept">{{ $t('viewer.samAccept') }}</el-button>
+              <el-button size="small" type="danger" plain @click="samReject">{{ $t('viewer.samReject') }}</el-button>
+              <el-button size="small" plain @click="samClear">{{ $t('viewer.samReselect') }}</el-button>
               <el-divider direction="vertical" style="border-color:#555;margin:0 4px;" />
-              <span class="sam-status-text" style="opacity:0.6">继续{{ samMode==='box' ? '拖拽' : '点击' }}可精化</span>
+              <span class="sam-status-text" style="opacity:0.6">{{ samMode==='box' ? $t('viewer.samRefineBox') : $t('viewer.samRefinePoint') }}</span>
             </template>
             <template v-else-if="samHasPrompts">
               <span class="sam-status-text">
                 <span v-if="samPoints.filter(p=>p.label===1).length > 0" style="color:#4caf50">● {{ samPoints.filter(p=>p.label===1).length }}</span>
                 <span v-if="samPoints.filter(p=>p.label===0).length > 0" style="color:#f44336;margin-left:6px">● {{ samPoints.filter(p=>p.label===0).length }}</span>
-                <span v-if="samBox" style="margin-left:6px;color:#ffc107">□ 框</span>
+                <span v-if="samBox" style="margin-left:6px;color:#ffc107">{{ $t('viewer.samBoxLabel') }}</span>
               </span>
-              <el-button size="small" type="danger" plain style="margin-left:6px" @click="samClear">清除</el-button>
+              <el-button size="small" type="danger" plain style="margin-left:6px" @click="samClear">{{ $t('viewer.samClear') }}</el-button>
             </template>
             <template v-else>
-              <span v-if="samMode==='point'" class="sam-status-text">左键目标点（绿）&nbsp;右键背景点（红）&nbsp;多次点击精化</span>
-              <span v-else class="sam-status-text">拖拽框选目标区域，可配合点提示精化</span>
+              <span v-if="samMode==='point'" class="sam-status-text">{{ $t('viewer.samPointInstruction') }}</span>
+              <span v-else class="sam-status-text">{{ $t('viewer.samBoxInstruction') }}</span>
             </template>
           </div>
         </Transition>
@@ -377,23 +377,23 @@
         <!-- Ghost comparison badge -->
         <Transition name="sam-fade">
           <div v-if="ghostVersionNum !== null && !loading && !errorMsg" class="ghost-badge">
-            <span class="ghost-badge-text">当前 vs v{{ ghostVersionNum }}</span>
+            <span class="ghost-badge-text">{{ $t('viewer.ghostBadge', { v: ghostVersionNum }) }}</span>
             <el-divider direction="vertical" style="border-color:rgba(255,140,0,0.4);margin:0 8px;" />
-            <el-button size="small" plain class="ghost-close-btn" @click="clearGhost">关闭对比</el-button>
+            <el-button size="small" plain class="ghost-close-btn" @click="clearGhost">{{ $t('viewer.closeCompare') }}</el-button>
           </div>
         </Transition>
 
         <!-- Loading overlay -->
         <div v-if="loading" class="loading-overlay">
           <el-icon class="loading-spin"><Loading /></el-icon>
-          <span>加载图像中...</span>
+          <span>{{ $t('viewer.loadingImage') }}</span>
         </div>
 
         <!-- Error overlay -->
         <div v-if="errorMsg" class="error-overlay">
           <el-icon style="font-size:48px;color:#f56c6c"><WarningFilled /></el-icon>
           <p>{{ errorMsg }}</p>
-          <el-button @click="goBack">返回</el-button>
+          <el-button @click="goBack">{{ $t('viewer.goBack') }}</el-button>
         </div>
       </div>
     </div>
@@ -408,10 +408,10 @@
       >
         <div class="ctx-item ctx-danger" @click="onCtxDelete">
           <el-icon><Delete /></el-icon>
-          删除标注
+          {{ $t('viewer.deleteAnno') }}
         </div>
         <div class="ctx-divider" />
-        <div class="ctx-subtitle">更换标签</div>
+        <div class="ctx-subtitle">{{ $t('viewer.changeLabel') }}</div>
         <div
           v-for="label in labels"
           :key="label.id"
@@ -431,10 +431,7 @@
       <span>X: <strong>{{ coordX }}</strong></span>
       <span>Y: <strong>{{ coordY }}</strong></span>
       <el-divider direction="vertical" />
-      <span class="shortcut-hint">
-        +/- 缩放 &nbsp;|&nbsp; H 适合 &nbsp;|&nbsp; 方向键平移 &nbsp;|&nbsp;
-        Del 删除选中 &nbsp;|&nbsp; B 画笔 &nbsp;|&nbsp; P 点标注 &nbsp;|&nbsp; M AI辅助 &nbsp;|&nbsp; E 橡皮擦 &nbsp;|&nbsp; Ctrl+Z/Y 撤销/重做 &nbsp;|&nbsp; Ctrl+S 保存
-      </span>
+      <span class="shortcut-hint">{{ $t('viewer.shortcutHint') }}</span>
     </div>
   </div>
 </template>
@@ -443,6 +440,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import {
   ArrowLeft, Plus, Minus, Loading, WarningFilled, Aim,
   RefreshLeft, RefreshRight, Download, Upload, Delete, QuestionFilled, MagicStick, Clock, Document
@@ -460,6 +458,7 @@ import ExportDialog from '@/components/ExportDialog.vue'
 import ImportDialog from '@/components/ImportDialog.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
 
+const { t, locale } = useI18n()
 const route      = useRoute()
 const router     = useRouter()
 const slideId    = Number(route.params.id)
@@ -518,12 +517,12 @@ const ghostLabels        = ref([])
 const ghostVersionNum    = ref(null)   // version number currently shown as ghost, null = none
 const ghostLoading       = ref(false)
 
-const triggerLabel = {
-  SUBMIT:   '首次提交',
-  RESUBMIT: '重新提交',
-  REJECT:   '被拒绝',
-  APPROVE:  '已通过'
-}
+const triggerLabel = computed(() => ({
+  SUBMIT:   t('viewer.triggerSubmit'),
+  RESUBMIT: t('viewer.triggerResubmit'),
+  REJECT:   t('viewer.triggerReject'),
+  APPROVE:  t('viewer.triggerApprove'),
+}))
 const triggerType = {
   SUBMIT:   '',
   RESUBMIT: 'warning',
@@ -539,14 +538,14 @@ const auditLoadingMore = ref(false)
 const auditPage        = ref(0)
 const auditHasMore     = ref(false)
 
-const auditActionLabel = {
-  SAVE:     '保存标注',
-  SUBMIT:   '提交审核',
-  RESUBMIT: '重新提交',
-  APPROVE:  '审核通过',
-  REJECT:   '审核拒绝',
-  IMPORT:   '导入标注'
-}
+const auditActionLabel = computed(() => ({
+  SAVE:     t('review.auditActionSave'),
+  SUBMIT:   t('review.auditActionSubmit'),
+  RESUBMIT: t('review.auditActionResubmit'),
+  APPROVE:  t('review.auditActionApprove'),
+  REJECT:   t('review.auditActionReject'),
+  IMPORT:   t('review.auditActionImport'),
+}))
 const auditActionType = {
   SAVE:     '',
   SUBMIT:   'primary',
@@ -623,7 +622,7 @@ async function openVersionHistory() {
     const res = await annotationApi.listVersions(slideId)
     versions.value = res.data ?? []
   } catch {
-    ElMessage.error('加载版本历史失败')
+    ElMessage.error(t('viewer.errorLoadVersions'))
   } finally {
     versionsLoading.value = false
   }
@@ -632,7 +631,7 @@ async function openVersionHistory() {
 function formatTime(ts) {
   if (!ts) return ''
   const d = new Date(ts)
-  return d.toLocaleString('zh-CN', { hour12: false })
+  return d.toLocaleString(locale.value, { hour12: false })
 }
 
 async function loadGhostVersion(ver) {
@@ -650,7 +649,7 @@ async function loadGhostVersion(ver) {
     ghostLabels.value = data.labels ?? []
     renderGhostAnnotations()
   } catch {
-    ElMessage.error('加载版本快照失败')
+    ElMessage.error(t('viewer.errorLoadSnapshot'))
     ghostVersionNum.value = null
   } finally {
     ghostLoading.value = false
@@ -789,12 +788,12 @@ onMounted(async () => {
     const res = await slideApi.get(slideId)
     slide.value = res.data
     if (slide.value?.status !== 'READY') {
-      errorMsg.value = '图像尚未处理完成，请稍候再试'
+      errorMsg.value = t('viewer.errorNotReady')
       loading.value = false
       return
     }
   } catch {
-    errorMsg.value = '无法加载图像信息'
+    errorMsg.value = t('viewer.errorLoadSlide')
     loading.value = false
     return
   }
@@ -820,7 +819,7 @@ onMounted(async () => {
     slideWidth.value  = dziParams.width
     slideHeight.value = dziParams.height
   } catch (e) {
-    errorMsg.value = `加载 DZI 失败：${e.message}`
+    errorMsg.value = t('viewer.errorLoadDzi', { msg: e.message })
     loading.value = false
     return
   }
@@ -881,7 +880,7 @@ onMounted(async () => {
 
     viewer.addHandler('open-failed', () => {
       loading.value = false
-      errorMsg.value = '图像瓦片加载失败，请检查后端服务'
+      errorMsg.value = t('viewer.errorTileFailed')
     })
 
     viewer.addHandler('zoom',            (e) => { zoomRaw.value = e.zoom })
@@ -895,7 +894,7 @@ onMounted(async () => {
       coordY.value = Math.max(0, Math.round(imgPt.y))
     })
   } catch (e) {
-    errorMsg.value = `查看器初始化失败：${e.message}`
+    errorMsg.value = t('viewer.errorViewerInit', { msg: e.message })
     loading.value = false
   }
 
@@ -1835,7 +1834,7 @@ async function runSamPredict() {
     samPreview.value = res.data
     renderSamOverlay()
   } catch {
-    ElMessage.error('SAM 推理失败，请确认 SAM 服务已启动')
+    ElMessage.error(t('viewer.errorSam'))
     samClear()
   } finally {
     samLoading.value = false
@@ -1860,7 +1859,7 @@ async function addAnnotation(data) {
   // Auto-create a label locally if none is active
   if (!activeLabel.value) {
     const color = labelPanelRef.value?.newColor ?? nextAutoColor()
-    const name  = `未命名标签${labels.value.length + 1}`
+    const name  = t('viewer.unnamedLabel', { n: labels.value.length + 1 })
     const newLabel = { id: --tempLabelIdCtr, name, color }
     labels.value.push(newLabel)
     activeLabelId.value = newLabel.id
@@ -1987,7 +1986,7 @@ async function saveAnnotations() {
     if (slide.value && slide.value.annoStatus === 'NOT_STARTED' && saved.length > 0) {
       slide.value.annoStatus = 'IN_PROGRESS'
     }
-    ElMessage.success('标注已保存')
+    ElMessage.success(t('viewer.annoSaved'))
   } catch {
     // Error shown by axios interceptor
   } finally {
@@ -2003,9 +2002,9 @@ async function markDone() {
   const isResubmit = slide.value?.reviewStatus === 'REJECTED' || slide.value?.reviewStatus === 'APPROVED'
   try {
     await ElMessageBox.confirm(
-      isResubmit ? '确认重新提交该切片进行审核？' : '确认提交该切片进行审核？提交后审核者将收到审核请求。',
-      isResubmit ? '重新提交审核' : '提交审核',
-      { type: 'info', confirmButtonText: '确认', cancelButtonText: '取消' }
+      isResubmit ? t('viewer.confirmResubmit') : t('viewer.confirmSubmit'),
+      isResubmit ? t('viewer.titleResubmit') : t('viewer.titleSubmit'),
+      { type: 'info', confirmButtonText: t('viewer.confirmBtnOk'), cancelButtonText: t('common.cancel') }
     )
   } catch { return }
   completing.value = true
@@ -2013,7 +2012,7 @@ async function markDone() {
     await annotationApi.markComplete(slideId)
     slide.value.annoStatus = 'DONE'
     slide.value.reviewStatus = 'PENDING_REVIEW'
-    ElMessage.success(isResubmit ? '已重新提交，等待审核' : '已提交审核，等待审核者审核')
+    ElMessage.success(isResubmit ? t('viewer.resubmittedMsg') : t('viewer.submittedMsg'))
   } catch { /* handled by interceptor */ } finally {
     completing.value = false
   }
@@ -2022,15 +2021,15 @@ async function markDone() {
 // ── Approve / Reject (reviewer) ───────────────────────────────────────────────
 async function handleApprove() {
   try {
-    await ElMessageBox.confirm('确认通过该切片的标注？', '通过审核', {
-      type: 'success', confirmButtonText: '确认通过', cancelButtonText: '取消'
+    await ElMessageBox.confirm(t('viewer.confirmApprove'), t('viewer.titleApprove'), {
+      type: 'success', confirmButtonText: t('viewer.confirmApproveBtn'), cancelButtonText: t('common.cancel')
     })
   } catch { return }
   reviewing.value = 'approve'
   try {
     await reviewApi.approve(slideId)
     slide.value.reviewStatus = 'APPROVED'
-    ElMessage.success('已通过审核')
+    ElMessage.success(t('viewer.approvedMsg'))
   } catch { /* handled */ } finally {
     reviewing.value = false
   }
@@ -2039,11 +2038,11 @@ async function handleApprove() {
 async function handleRejectPrompt() {
   let comment = ''
   try {
-    const { value } = await ElMessageBox.prompt('请填写拒绝原因：', '拒绝标注', {
-      confirmButtonText: '确认拒绝',
-      cancelButtonText: '取消',
+    const { value } = await ElMessageBox.prompt(t('viewer.confirmRejectPrompt'), t('viewer.titleReject'), {
+      confirmButtonText: t('viewer.confirmRejectBtn'),
+      cancelButtonText: t('common.cancel'),
       inputType: 'textarea',
-      inputValidator: (v) => v?.trim() ? true : '拒绝原因不能为空'
+      inputValidator: (v) => v?.trim() ? true : t('viewer.rejectInputRequired')
     })
     comment = value
   } catch { return }
@@ -2052,7 +2051,7 @@ async function handleRejectPrompt() {
     await reviewApi.reject(slideId, comment)
     slide.value.reviewStatus = 'REJECTED'
     slide.value.reviewerComment = comment
-    ElMessage.success('已拒绝，标注者将收到反馈')
+    ElMessage.success(t('viewer.rejectedMsg'))
   } catch { /* handled */ } finally {
     reviewing.value = false
   }
@@ -2095,9 +2094,9 @@ async function onDeleteLabel(labelId) {
   if (hasAnno) {
     try {
       await ElMessageBox.confirm(
-        '删除该标签将同时删除其所有标注，是否继续？',
-        '确认删除',
-        { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+        t('viewer.confirmDeleteLabel'),
+        t('viewer.confirmDeleteLabelTitle'),
+        { type: 'warning', confirmButtonText: t('viewer.confirmDeleteLabelBtn'), cancelButtonText: t('common.cancel') }
       )
     } catch { return }
   }
@@ -2220,12 +2219,12 @@ async function goBack() {
   if (isDirty.value) {
     try {
       await ElMessageBox.confirm(
-        '当前标注尚未保存，是否保存后再离开？',
-        '未保存的更改',
+        t('viewer.unsavedChangesMsg'),
+        t('viewer.unsavedChangesTitle'),
         {
           type: 'warning',
-          confirmButtonText: '保存并离开',
-          cancelButtonText: '不保存',
+          confirmButtonText: t('viewer.saveAndLeave'),
+          cancelButtonText: t('viewer.discardChanges'),
           distinguishCancelAndClose: true,
         }
       )
