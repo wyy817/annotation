@@ -1,0 +1,161 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, "Noto Sans SC", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --po-harbor: oklch(0.45 0.1 230);
+  --po-harbor-hover: oklch(0.39 0.09 230);
+  --po-harbor-soft: oklch(0.95 0.025 230);
+  --po-eosin: oklch(0.68 0.16 350);
+  --po-eosin-soft: oklch(0.95 0.035 350);
+  --po-canvas: oklch(0.975 0.006 230);
+  --po-paper: oklch(1 0 0);
+  --po-surface-subtle: oklch(0.955 0.008 230);
+  --po-ink: oklch(0.22 0.018 230);
+  --po-ink-muted: oklch(0.44 0.025 230);
+  --po-hairline: oklch(0.87 0.012 230);
+  --po-viewer: oklch(0.12 0.008 230);
+  --po-viewer-panel: oklch(0.18 0.012 230);
+  --po-viewer-ink: oklch(0.94 0.006 230);
+  --po-risk: oklch(0.47 0.17 25);
+  --po-risk-soft: oklch(0.95 0.035 25);
+  --po-attention: oklch(0.42 0.1 75);
+  --po-attention-soft: oklch(0.95 0.055 80);
+  --po-verified: oklch(0.4 0.1 155);
+  --po-verified-soft: oklch(0.95 0.04 155);
+
+  --po-radius-xs: 2px;
+  --po-radius-sm: 6px;
+  --po-radius-md: 8px;
+  --po-shadow-popover: 0 8px 24px rgba(14, 28, 38, 0.12);
+  --po-shadow-modal: 0 16px 48px rgba(14, 28, 38, 0.18);
+  --po-motion-fast: 150ms;
+  --po-motion-standard: 200ms;
+  --po-motion-deliberate: 250ms;
+  --po-ease-state: cubic-bezier(0.22, 1, 0.36, 1);
+  --po-content-max: 1540px;
+
+  --el-color-primary: oklch(0.45 0.1 230);
+  --el-color-primary-light-3: oklch(0.63 0.075 230);
+  --el-color-primary-light-5: oklch(0.75 0.055 230);
+  --el-color-primary-light-7: oklch(0.87 0.035 230);
+  --el-color-primary-light-8: oklch(0.92 0.03 230);
+  --el-color-primary-light-9: oklch(0.95 0.025 230);
+  --el-color-primary-dark-2: oklch(0.39 0.09 230);
+  --el-color-success: oklch(0.4 0.1 155);
+  --el-color-warning: oklch(0.42 0.1 75);
+  --el-color-danger: oklch(0.47 0.17 25);
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 4px;
+  --el-border-color: oklch(0.87 0.012 230);
+  --el-border-color-light: oklch(0.9 0.01 230);
+  --el-border-color-lighter: oklch(0.93 0.008 230);
+  --el-fill-color-light: oklch(0.955 0.008 230);
+  --el-fill-color-lighter: oklch(0.975 0.006 230);
+  --el-bg-color: oklch(1 0 0);
+  --el-text-color-primary: oklch(0.22 0.018 230);
+  --el-text-color-regular: oklch(0.36 0.022 230);
+  --el-text-color-secondary: oklch(0.44 0.025 230);
+  --el-font-family: Inter, "Noto Sans SC", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --el-box-shadow-light: var(--po-shadow-popover);
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+html {
+  background: var(--po-canvas);
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  overflow-x: clip;
+  background: var(--po-canvas);
+  color: var(--po-ink);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--po-harbor-soft);
+  color: var(--po-ink);
+}
+
+.po-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.po-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.el-button {
+  min-height: 36px;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition:
+    color var(--po-motion-fast) var(--po-ease-state),
+    border-color var(--po-motion-fast) var(--po-ease-state),
+    background-color var(--po-motion-fast) var(--po-ease-state);
+}
+
+.el-button:focus-visible,
+.el-input__wrapper:has(input:focus-visible),
+.el-select__wrapper:has(input:focus-visible),
+.el-textarea__inner:focus-visible {
+  outline: 3px solid var(--po-harbor-soft);
+  outline-offset: 2px;
+}
+
+.el-input__wrapper,
+.el-select__wrapper {
+  min-height: 36px;
+  border-radius: var(--po-radius-sm);
+  box-shadow: 0 0 0 1px var(--po-hairline) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused {
+  box-shadow: 0 0 0 1px var(--po-harbor) inset;
+}
+
+.el-dialog {
+  border-radius: var(--po-radius-md);
+  box-shadow: var(--po-shadow-modal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

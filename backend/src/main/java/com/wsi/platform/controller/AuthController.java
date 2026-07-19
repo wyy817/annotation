@@ -60,11 +60,14 @@ public class AuthController {
             return Result.error(401, messageUtil.msg("error.credentials.invalid"));
         }
         String token = jwtUtil.generate(user.getId(), user.getUsername(), user.getRole());
+        String displayName = user.getDisplayName() == null || user.getDisplayName().isBlank()
+                ? user.getUsername() : user.getDisplayName();
         return Result.success(Map.of(
                 "token", token,
                 "user", Map.of(
                         "id", user.getId(),
                         "username", user.getUsername(),
+                        "displayName", displayName,
                         "role", user.getRole()
                 )
         ));
@@ -73,9 +76,14 @@ public class AuthController {
     @GetMapping("/api/auth/me")
     public Result<Map<String, Object>> me() {
         UserContext.UserInfo info = UserContext.get();
+        User user = userService.findById(info.id());
+        String displayName = user == null || user.getDisplayName() == null
+                || user.getDisplayName().isBlank()
+                ? info.username() : user.getDisplayName();
         return Result.success(Map.of(
                 "id", info.id(),
                 "username", info.username(),
+                "displayName", displayName,
                 "role", info.role()
         ));
     }

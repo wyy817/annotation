@@ -71,7 +71,12 @@
       >
         {{ $t('upload.startUpload') }}
       </el-button>
-      <el-button v-if="done" type="primary" @click="visible = false">{{ $t('upload.finish') }}</el-button>
+      <el-button v-if="done" :type="creatableSlideId ? '' : 'primary'" @click="visible = false">
+        {{ $t('upload.finish') }}
+      </el-button>
+      <el-button v-if="done && creatableSlideId" type="primary" @click="createCase">
+        {{ $t('po.caseCreate.createAfterUpload') }}
+      </el-button>
     </template>
   </el-dialog>
 </template>
@@ -84,9 +89,10 @@ import { useSlideStore } from '@/stores/slideStore'
 
 const props = defineProps({
   modelValue: Boolean,
-  workspaceId: { type: [Number, String], required: true }
+  workspaceId: { type: [Number, String], required: true },
+  canCreateCase: { type: Boolean, default: false },
 })
-const emit = defineEmits(['update:modelValue', 'uploaded'])
+const emit = defineEmits(['update:modelValue', 'uploaded', 'create-case'])
 
 const visible = computed({
   get: () => props.modelValue,
@@ -133,6 +139,21 @@ const pollPercent = computed(() => {
   if (!pendingSlides.value.length) return 0
   return Math.round(((readyCount.value + errorCount.value) / pendingSlides.value.length) * 100)
 })
+const creatableSlideId = computed(() => (
+  props.canCreateCase
+  && pendingSlides.value.length === 1
+  && readyCount.value === 1
+  && errorCount.value === 0
+    ? pendingSlides.value[0].id
+    : null
+))
+
+function createCase() {
+  const slideId = creatableSlideId.value
+  if (!slideId) return
+  visible.value = false
+  emit('create-case', slideId)
+}
 
 function onFileChange(e) {
   addFiles(Array.from(e.target.files))
@@ -197,6 +218,8 @@ function startPolling() {
           const r = await slideApi.get(id)
           const slide = r.data
           store.updateSlide(slide)
+          const index = pendingSlides.value.findIndex((item) => item.id === id)
+          if (index >= 0) pendingSlides.value.splice(index, 1, slide)
           if (slide.status === 'READY') {
             readyCount.value++
             remaining.delete(id)

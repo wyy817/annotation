@@ -1,0 +1,14 @@
+# Netlify applies these response headers to the deployed static demo.
+# Netlify reads this file from the site root on every deploy, including
+# drag-and-drop, so no dashboard configuration is required.
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+  X-Robots-Tag: noindex, nofollow
+
+# Vite fingerprints every asset filename, so these are safe to cache forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -1834,7 +1834,6 @@ async function runSamPredict() {
     samPreview.value = res.data
     renderSamOverlay()
   } catch {
-    ElMessage.error(t('viewer.errorSam'))
     samClear()
   } finally {
     samLoading.value = false

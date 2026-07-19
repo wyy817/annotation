@@ -1,6 +1,7 @@
 package com.wsi.platform.controller;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.wsi.platform.common.MessageUtil;
 import com.wsi.platform.common.Result;
 import com.wsi.platform.entity.Slide;
 import com.wsi.platform.mapper.SlideMapper;
@@ -9,6 +10,9 @@ import com.wsi.platform.service.PythonServiceClient.SamPredictRequest;
 import com.wsi.platform.service.PythonServiceClient.SamPredictResponse;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -23,10 +27,12 @@ import java.util.List;
  */
 @RestController
 @RequiredArgsConstructor
+@Slf4j
 public class SamController {
 
     private final SlideMapper slideMapper;
     private final PythonServiceClient pythonClient;
+    private final MessageUtil messageUtil;
 
     // ── Request / Response DTOs ──────────────────────────────────────────────
 
@@ -116,7 +122,22 @@ public class SamController {
         pyReq.setBox(body.getBox());
         pyReq.setPatchSize(body.getPatchSize() > 0 ? body.getPatchSize() : 1024);
 
-        SamPredictResponse pyRes = pythonClient.samPredict(pyReq);
+        SamPredictResponse pyRes;
+        try {
+            pyRes = pythonClient.samPredict(pyReq);
+        } catch (RestClientResponseException e) {
+            int downstreamStatus = e.getStatusCode().value();
+            log.warn("SAM service returned status {} for slide {}",
+                    downstreamStatus, slideId);
+            if (downstreamStatus == HttpStatus.SERVICE_UNAVAILABLE.value()) {
+                return Result.error(503, messageUtil.msg("error.sam.unavailable"));
+            }
+            return Result.error(502, messageUtil.msg("error.sam.failed"));
+        } catch (RestClientException e) {
+            log.warn("SAM service request failed for slide {}: {}",
+                    slideId, e.getMessage());
+            return Result.error(503, messageUtil.msg("error.sam.unavailable"));
+        }
 
         // 5. Map to API response
         SamResponse resp = new SamResponse();

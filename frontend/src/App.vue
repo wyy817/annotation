@@ -34,7 +34,7 @@ function handleNotification(payload) {
   notifStore.addNotification(payload)
   const { elType, titleKey } = TYPE_CONFIG[payload.type] ?? { elType: 'info', titleKey: 'notification.default' }
   ElNotification({
-    title: `${t(titleKey)}：${payload.slideName}`,
+    title: t(titleKey) + ': ' + payload.slideName,
     message: payload.message,
     type: elType,
     duration: 6000,
@@ -83,8 +83,7 @@ onMounted(() => {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #f5f7fa;
-  color: #303133;
+  background-color: var(--po-canvas);
+  color: var(--po-ink);
 }
 </style>

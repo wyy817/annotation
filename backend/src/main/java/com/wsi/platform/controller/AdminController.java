@@ -11,7 +11,7 @@ import java.util.List;
 
 /**
  * Admin-only endpoints for user management.
- * All endpoints require REVIEWER role.
+ * All endpoints require SYSTEM_ADMIN role.
  *
  * GET  /api/admin/users/pending      — list users with PENDING status
  * GET  /api/admin/users              — list all users
@@ -26,19 +26,19 @@ public class AdminController {
 
     @GetMapping("/api/admin/users/pending")
     public Result<List<User>> listPending() {
-        requireReviewer();
+        requireSystemAdmin();
         return Result.success(userService.listPendingUsers());
     }
 
     @GetMapping("/api/admin/users")
     public Result<List<User>> listAll() {
-        requireReviewer();
+        requireSystemAdmin();
         return Result.success(userService.listAllUsers());
     }
 
     @PutMapping("/api/admin/users/{id}/approve")
     public Result<String> approve(@PathVariable Long id) {
-        requireReviewer();
+        requireSystemAdmin();
         try {
             userService.approveUser(id);
             return Result.success("已通过审批");
@@ -49,7 +49,7 @@ public class AdminController {
 
     @PutMapping("/api/admin/users/{id}/disable")
     public Result<String> disable(@PathVariable Long id) {
-        requireReviewer();
+        requireSystemAdmin();
         try {
             userService.disableUser(id);
             return Result.success("已禁用");
@@ -58,9 +58,9 @@ public class AdminController {
         }
     }
 
-    private void requireReviewer() {
+    private void requireSystemAdmin() {
         UserContext.UserInfo info = UserContext.get();
-        if (!"REVIEWER".equals(info.role())) {
+        if (!"SYSTEM_ADMIN".equals(info.role())) {
             throw new SecurityException("无权限");
         }
     }

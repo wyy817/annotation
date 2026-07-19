@@ -6,9 +6,11 @@ backend/target/
 *.ear
 *.log
 
-# ===== Node / Frontend =====
+# ===== Node / frontend =====
 frontend/node_modules/
 frontend/dist/
+frontend/screenshots/
+frontend/artifacts/
 frontend/.env
 frontend/.env.local
 frontend/.env.*.local
@@ -22,13 +24,13 @@ python-service/venv/
 *.pyc
 __pycache__/
 
-# ===== Data / Uploads (不推送实际数据文件) =====
+# ===== Data / uploads (never commit clinical data) =====
 data/uploads/*
 data/exports/*
 !data/uploads/.gitkeep
 !data/exports/.gitkeep
 
-# ===== Python storage (WSI 切片缓存等) =====
+# ===== Python storage (WSI tiles and caches) =====
 python-service/storage/*
 !python-service/storage/.gitkeep
 
@@ -41,7 +43,15 @@ python-service/storage/*
 .DS_Store
 Thumbs.db
 
-# ===== 本地配置 =====
+# ===== Local configuration =====
 *.env
 application-local.yml
 application-local.properties
+
+# ===== Local runtime artifacts =====
+.run/
+backend/data/
+frontend/*.log
+
+# ===== Design tool scratch =====
+.impeccable/

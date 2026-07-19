@@ -1,0 +1,7 @@
+# Pathorchestra is a clinical decision-support DEMONSTRATION, not a validated
+# medical device. Keep it out of search engines so it is not discovered or
+# mistaken for a real clinical tool. The authoritative signal is the
+# `X-Robots-Tag: noindex` response header in _headers; this file also asks
+# crawlers not to crawl the site at all.
+User-agent: *
+Disallow: /

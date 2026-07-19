@@ -1,7 +1,33 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import WorkspaceView from '@/views/WorkspaceView.vue'
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
+import { IS_DEMO_MODE, normalizeProductRole } from '@/config/product'
 
-const routes = [
+const productRoutes = [
+  {
+    path: '/',
+    name: 'home',
+    redirect: { name: 'cases' }
+  },
+  {
+    path: '/cases',
+    name: 'cases',
+    component: () => import('@/views/CaseDashboardView.vue'),
+    meta: { titleKey: 'po.queue.title' }
+  },
+  {
+    path: '/cases/:caseId',
+    name: 'caseReview',
+    component: () => import('@/views/CaseReviewView.vue'),
+    meta: { titleKey: 'po.viewer.title' }
+  },
+  {
+    path: '/feedback',
+    name: 'feedbackPool',
+    component: () => import('@/views/FeedbackPoolView.vue'),
+    meta: { titleKey: 'po.feedback.title' }
+  }
+]
+
+const localOnlyRoutes = [
   {
     path: '/login',
     name: 'login',
@@ -15,9 +41,9 @@ const routes = [
     meta: { public: true }
   },
   {
-    path: '/',
+    path: '/workspaces',
     name: 'workspaces',
-    component: WorkspaceView
+    component: () => import('@/views/WorkspaceView.vue')
   },
   {
     path: '/workspace/:id',
@@ -38,33 +64,43 @@ const routes = [
     path: '/admin',
     name: 'admin',
     component: () => import('@/views/AdminView.vue'),
-    meta: { requiresReviewer: true }
+    meta: { allowedRoles: ['REVIEWER', 'SYSTEM_ADMIN'] }
+  }
+]
+
+const routes = [
+  ...productRoutes,
+  ...(IS_DEMO_MODE ? [] : localOnlyRoutes),
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: { name: 'cases' }
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: IS_DEMO_MODE ? createWebHashHistory() : createWebHistory(),
   routes
 })
 
 router.beforeEach((to) => {
+  if (IS_DEMO_MODE) {
+    return true
+  }
+
   const token = localStorage.getItem('wsi_token')
   if (!to.meta.public && !token) {
     return { name: 'login' }
   }
-  if (to.meta.requiresReviewer) {
+
+  if (to.meta.allowedRoles) {
     const user = JSON.parse(localStorage.getItem('wsi_user') || 'null')
-    if (user?.role !== 'REVIEWER') {
-      return { name: 'workspaces' }
+    const role = normalizeProductRole(user?.role)
+    if (!to.meta.allowedRoles.includes(role)) {
+      return { name: 'cases' }
     }
   }
-  // Reviewers always start at review dashboard
-  if (to.name === 'workspaces') {
-    const user = JSON.parse(localStorage.getItem('wsi_user') || 'null')
-    if (user?.role === 'REVIEWER') {
-      return { name: 'reviewDashboard' }
-    }
-  }
+
+  return true
 })
 
 export default router

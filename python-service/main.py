@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import internal
+from routers import ai_analysis, internal
 
 app = FastAPI(
     title="WSI Platform - Image Processing Service",
@@ -10,6 +10,11 @@ app = FastAPI(
 )
 
 app.include_router(internal.router, prefix="/internal", tags=["internal"])
+app.include_router(
+    ai_analysis.router,
+    prefix="/internal/ai",
+    tags=["ai-analysis"],
+)
 
 
 @app.get("/health")

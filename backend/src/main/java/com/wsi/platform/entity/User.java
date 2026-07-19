@@ -15,10 +15,12 @@ public class User {
 
     private String username;
 
+    private String displayName;
+
     @JsonIgnore
     private String passwordHash;
 
-    /** ANNOTATOR | REVIEWER */
+    /** ANNOTATOR | REVIEWER | AI_DATA_ADMIN | SYSTEM_ADMIN */
     private String role;
 
     /** PENDING | ACTIVE | DISABLED */

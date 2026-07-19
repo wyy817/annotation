@@ -1,21 +1,16 @@
 <template>
-  <div class="workspace-page">
-    <!-- Header -->
-    <header class="page-header">
-      <div class="header-content">
-        <h1 class="logo">WSI Platform</h1>
-        <p class="subtitle">{{ $t('app.subtitle') }}</p>
+  <ProductShell>
+    <div class="workspace-page">
+    <header class="library-header">
+      <div>
+        <span class="library-eyebrow">{{ t('po.library.eyebrow') }}</span>
+        <h1>{{ t('po.library.title') }}</h1>
+        <p>{{ t('po.library.subtitle') }}</p>
       </div>
-      <div class="header-right">
-        <span class="user-info">
-          <el-tag type="success" size="small">{{ $t('workspace.annotatorTag') }}</el-tag>
-          {{ userStore.user?.username }}
-        </span>
-        <NotificationBell />
-        <LangSwitch />
-        <el-button size="small" @click="handleLogout">{{ $t('auth.logout') }}</el-button>
+      <div class="library-actions">
         <el-button
           :type="selectionMode ? 'warning' : ''"
+          :icon="Operation"
           @click="toggleSelectionMode"
         >{{ selectionMode ? $t('common.exitSelection') : $t('common.batchSelect') }}</el-button>
         <el-button type="primary" :icon="Plus" @click="showCreate = true">
@@ -24,21 +19,17 @@
       </div>
     </header>
 
-    <!-- Loading skeleton -->
     <div v-if="store.loading" class="card-grid">
       <el-skeleton v-for="n in 4" :key="n" class="skeleton-card" :rows="3" animated />
     </div>
 
-    <!-- Empty state -->
     <el-empty
       v-else-if="store.workspaces.length === 0"
       :description="$t('workspace.empty')"
       class="empty-state"
     />
 
-    <!-- Workspace cards (with optional batch bar) -->
     <template v-else>
-      <!-- Batch action bar -->
       <div v-if="selectionMode" class="batch-bar">
         <el-checkbox
           :model-value="isAllSelected"
@@ -69,7 +60,6 @@
       </div>
     </template>
 
-    <!-- Dialogs -->
     <CreateWorkspaceDialog v-model="showCreate" @created="onCreated" />
 
     <RenameWorkspaceDialog
@@ -78,7 +68,6 @@
       @renamed="onRenamed"
     />
 
-    <!-- Batch delete confirm -->
     <el-dialog v-model="showBatchDelete" :title="$t('workspace.batchDeleteTitle')" width="420px">
       <p>
         {{ $t('workspace.batchDeleteConfirm', { count: selectedIds.size }) }}<br />
@@ -100,7 +89,8 @@
         <el-button type="danger" :loading="deleting" @click="confirmDelete">{{ $t('common.confirmDelete') }}</el-button>
       </template>
     </el-dialog>
-  </div>
+    </div>
+  </ProductShell>
 </template>
 
 <script setup>
@@ -108,12 +98,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { Plus, Delete } from '@element-plus/icons-vue'
-import NotificationBell from '@/components/NotificationBell.vue'
-import LangSwitch from '@/components/LangSwitch.vue'
+import { Plus, Delete, Operation } from '@element-plus/icons-vue'
+import ProductShell from '@/components/ProductShell.vue'
 
 import { useWorkspaceStore } from '@/stores/workspaceStore'
-import { useUserStore } from '@/stores/userStore'
 import WorkspaceCard from '@/components/WorkspaceCard.vue'
 import CreateWorkspaceDialog from '@/components/CreateWorkspaceDialog.vue'
 import RenameWorkspaceDialog from '@/components/RenameWorkspaceDialog.vue'
@@ -121,12 +109,6 @@ import RenameWorkspaceDialog from '@/components/RenameWorkspaceDialog.vue'
 const { t } = useI18n()
 const router = useRouter()
 const store = useWorkspaceStore()
-const userStore = useUserStore()
-
-function handleLogout() {
-  userStore.logout()
-  router.replace({ name: 'login' })
-}
 
 const showCreate = ref(false)
 const showRename = ref(false)
@@ -222,81 +204,108 @@ async function confirmDelete() {
 
 <style scoped>
 .workspace-page {
-  min-height: 100vh;
-  padding: 0 0 48px;
+  padding-bottom: 20px;
 }
 
-.page-header {
+.library-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  padding: 16px 40px;
-  background: #fff;
-  border-bottom: 1px solid #ebeef5;
-  margin-bottom: 32px;
+  gap: 24px;
+  margin-bottom: 26px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--po-hairline);
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  color: #606266;
-}
-
-.logo {
-  font-size: 22px;
+.library-eyebrow {
+  color: var(--po-harbor);
+  font-size: 11px;
   font-weight: 700;
-  color: #409eff;
-  margin-bottom: 2px;
 }
 
-.subtitle {
+.library-header h1 {
+  margin: 6px 0 4px;
+  color: var(--po-ink);
+  font-size: 28px;
+  font-weight: 680;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.library-header p {
+  margin: 0;
+  color: var(--po-ink-muted);
   font-size: 13px;
-  color: #909399;
+}
+
+.library-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .batch-bar {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 40px;
-  background: #ecf5ff;
-  border-bottom: 1px solid #d9ecff;
+  min-height: 48px;
+  padding: 6px 12px;
+  border: 1px solid oklch(0.86 0.04 230);
+  border-radius: var(--po-radius-sm);
+  background: var(--po-harbor-soft);
   margin-bottom: 20px;
 }
+
 .batch-info {
-  font-size: 13px;
-  color: #409eff;
+  color: var(--po-harbor);
+  font-size: 12px;
   font-weight: 500;
 }
 
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-  padding: 0 40px;
+  gap: 14px;
 }
 
 .skeleton-card {
-  background: #fff;
-  border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--po-hairline);
+  border-radius: var(--po-radius-md);
+  background: var(--po-paper);
 }
 
 .empty-state {
-  margin-top: 120px;
+  min-height: 320px;
 }
 
 .warn-text {
-  color: #f56c6c;
+  color: var(--po-risk);
   font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .library-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .library-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .library-actions :deep(.el-button) {
+    margin: 0;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .batch-bar {
+    flex-wrap: wrap;
+  }
 }
 </style>

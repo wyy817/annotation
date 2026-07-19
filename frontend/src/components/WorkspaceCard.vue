@@ -6,7 +6,7 @@
     </div>
     <!-- Icon area -->
     <div class="card-icon">
-      <el-icon :size="36" color="#409eff"><FolderOpened /></el-icon>
+      <el-icon :size="32" color="var(--po-harbor)"><FolderOpened /></el-icon>
     </div>
 
     <!-- Info -->
@@ -63,20 +63,23 @@ function formatDate(dateStr) {
 <style scoped>
 .ws-card {
   position: relative;
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: box-shadow 0.2s, transform 0.15s;
+  min-height: 152px;
+  padding: 20px;
+  border: 1px solid var(--po-hairline);
+  border-radius: var(--po-radius-md);
+  background: var(--po-paper);
+  cursor: pointer;
+  transition:
+    border-color var(--po-motion-fast) var(--po-ease-state),
+    background-color var(--po-motion-fast) var(--po-ease-state);
 }
 
 .ws-card:hover {
-  box-shadow: 0 4px 16px rgba(64, 158, 255, 0.15);
-  transform: translateY(-2px);
+  border-color: oklch(0.75 0.04 230);
+  background: var(--po-harbor-soft);
 }
 
 .card-icon {
@@ -90,27 +93,27 @@ function formatDate(dateStr) {
 }
 
 .card-title {
+  margin-bottom: 4px;
+  overflow: hidden;
+  color: var(--po-ink);
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
-  white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
+  white-space: nowrap;
 }
 
 .card-desc {
-  font-size: 13px;
-  color: #909399;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   margin-bottom: 8px;
+  overflow: hidden;
+  color: var(--po-ink-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-meta {
+  color: var(--po-ink-muted);
   font-size: 12px;
-  color: #c0c4cc;
 }
 
 .card-checkbox {
@@ -120,8 +123,9 @@ function formatDate(dateStr) {
   z-index: 2;
 }
 .ws-card.is-selected {
-  outline: 2px solid #409eff;
-  background: #ecf5ff;
+  border-color: var(--po-harbor);
+  outline: 2px solid var(--po-harbor-soft);
+  background: var(--po-harbor-soft);
 }
 
 .card-actions {
@@ -131,6 +135,6 @@ function formatDate(dateStr) {
 }
 
 :deep(.danger-item) {
-  color: #f56c6c !important;
+  color: var(--po-risk) !important;
 }
 </style>

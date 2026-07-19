@@ -92,10 +92,22 @@ public class UserService {
      * Create a user (used by DataInitializer). Seed accounts are always ACTIVE.
      */
     public User createIfAbsent(String username, String rawPassword, String role) {
+        return createIfAbsent(username, rawPassword, role, username);
+    }
+
+    public User createIfAbsent(String username, String rawPassword, String role,
+                               String displayName) {
         User existing = findByUsername(username);
-        if (existing != null) return existing;
+        if (existing != null) {
+            if (existing.getDisplayName() == null || existing.getDisplayName().isBlank()) {
+                existing.setDisplayName(displayName);
+                userMapper.updateById(existing);
+            }
+            return existing;
+        }
         User user = new User();
         user.setUsername(username);
+        user.setDisplayName(displayName);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setRole(role);
         user.setStatus("ACTIVE");

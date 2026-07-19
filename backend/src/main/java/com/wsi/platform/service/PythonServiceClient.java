@@ -1,12 +1,16 @@
 package com.wsi.platform.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.wsi.platform.config.StorageProperties;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
 import java.util.Map;
@@ -91,6 +95,32 @@ public class PythonServiceClient {
         @JsonProperty("mask_b64") private String maskB64;
     }
 
+    @Data
+    public static class CreateAiAnalysisRequest {
+        @JsonProperty("slide_id") private long slideId;
+        @JsonProperty("file_path") private String filePath;
+        @JsonProperty("case_id") private String caseId;
+        @JsonProperty("annotation_xml") private String annotationXml;
+        @JsonProperty("patch_h5") private String patchH5;
+    }
+
+    @Data
+    public static class AiAnalysisJobResponse {
+        @JsonProperty("job_id") private String jobId;
+        @JsonProperty("slide_id") private long slideId;
+        @JsonProperty("case_id") private String caseId;
+        private String status;
+        private String stage;
+        @JsonProperty("stage_progress") private double stageProgress;
+        private String message;
+        @JsonProperty("created_at") private String createdAt;
+        @JsonProperty("started_at") private String startedAt;
+        @JsonProperty("completed_at") private String completedAt;
+        private String error;
+        @JsonProperty("status_url") private String statusUrl;
+        @JsonProperty("result_url") private String resultUrl;
+    }
+
     // ── API calls ────────────────────────────────────────────────────────────
 
     /** Generate DeepZoom tiles + thumbnail for a slide. Blocking. */
@@ -102,6 +132,29 @@ public class PythonServiceClient {
         req.setTileSize(tileSize);
         log.info("POST {} slideId={}", url, slideId);
         return restTemplate.postForObject(url, req, ProcessSlideResponse.class);
+    }
+
+    /** Render a single OpenSlide DeepZoom tile. Python caches the result. */
+    public ResponseEntity<byte[]> getSlideTile(long slideId,
+                                               String filePath,
+                                               int tileSize,
+                                               int level,
+                                               int col,
+                                               int row) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromHttpUrl(props.getPythonService().getBaseUrl())
+                .pathSegment(
+                        "internal", "slides", String.valueOf(slideId),
+                        "tiles", String.valueOf(level), String.valueOf(col), String.valueOf(row)
+                )
+                .queryParam("file_path", filePath)
+                .queryParam("tile_size", tileSize);
+        return restTemplate.exchange(
+                builder.build().encode().toUri(),
+                HttpMethod.GET,
+                null,
+                byte[].class
+        );
     }
 
     /** Render vector annotations into a semantic mask PNG. Blocking. */
@@ -140,5 +193,50 @@ public class PythonServiceClient {
         log.info("POST {} slideId={} points={} hasBox={}", url, req.getSlideId(),
                 req.getPoints().size(), req.getBox() != null);
         return restTemplate.postForObject(url, req, SamPredictResponse.class);
+    }
+
+    public AiAnalysisJobResponse createAiAnalysis(long slideId,
+                                                   String filePath,
+                                                   String caseId,
+                                                   String annotationXml,
+                                                   String patchH5) {
+        String url = props.getPythonService().getBaseUrl() + "/internal/ai/analyses";
+        CreateAiAnalysisRequest req = new CreateAiAnalysisRequest();
+        req.setSlideId(slideId);
+        req.setFilePath(filePath);
+        req.setCaseId(caseId);
+        req.setAnnotationXml(annotationXml);
+        req.setPatchH5(patchH5);
+        log.info("POST {} slideId={}", url, slideId);
+        return restTemplate.postForObject(url, req, AiAnalysisJobResponse.class);
+    }
+
+    public AiAnalysisJobResponse getAiAnalysisJob(String jobId) {
+        String url = props.getPythonService().getBaseUrl()
+                + "/internal/ai/analyses/" + jobId;
+        return restTemplate.getForObject(url, AiAnalysisJobResponse.class);
+    }
+
+    public JsonNode getAiAnalysisResult(String jobId) {
+        String url = props.getPythonService().getBaseUrl()
+                + "/internal/ai/analyses/" + jobId + "/result";
+        return restTemplate.getForObject(url, JsonNode.class);
+    }
+
+    public ResponseEntity<byte[]> getAiAnalysisArtifact(String jobId,
+                                                        String relativePath) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromHttpUrl(props.getPythonService().getBaseUrl())
+                .pathSegment("internal", "ai", "analyses", jobId, "files");
+        String normalized = relativePath.replace('\\', '/');
+        for (String segment : normalized.split("/")) {
+            if (!segment.isBlank()) builder.pathSegment(segment);
+        }
+        return restTemplate.exchange(
+                builder.build().encode().toUri(),
+                HttpMethod.GET,
+                null,
+                byte[].class
+        );
     }
 }

@@ -1,73 +1,73 @@
 <template>
-  <div class="register-page">
-    <div class="register-box">
-      <div class="register-header">
-        <h1 class="logo">WSI Platform</h1>
-        <p class="subtitle">{{ $t('auth.registerTitle') }}</p>
-      </div>
-
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="0">
-        <el-form-item prop="username">
-          <el-input
-            v-model="form.username"
-            :placeholder="$t('auth.usernamePlaceholder')"
-            size="large"
-            :prefix-icon="User"
-            autocomplete="username"
-          />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input
-            v-model="form.password"
-            :placeholder="$t('auth.passwordPlaceholder')"
-            size="large"
-            type="password"
-            :prefix-icon="Lock"
-            show-password
-            autocomplete="new-password"
-          />
-        </el-form-item>
-        <el-form-item prop="confirmPassword">
-          <el-input
-            v-model="form.confirmPassword"
-            :placeholder="$t('auth.confirmPassword')"
-            size="large"
-            type="password"
-            :prefix-icon="Lock"
-            show-password
-            autocomplete="new-password"
-          />
-        </el-form-item>
-        <el-form-item prop="role">
-          <el-select
-            v-model="form.role"
-            :placeholder="$t('auth.selectRole')"
-            size="large"
-            style="width:100%"
-          >
-            <el-option :label="$t('auth.roleAnnotator')" value="ANNOTATOR" />
-            <el-option :label="$t('auth.roleReviewer')" value="REVIEWER" />
-          </el-select>
-        </el-form-item>
-        <el-button
-          type="primary"
+  <AuthShell :title="t('po.auth.registerTitle')" :subtitle="t('po.auth.registerSubtitle')">
+    <el-form
+      ref="formRef"
+      class="po-auth-form"
+      :model="form"
+      :rules="rules"
+      label-position="top"
+    >
+      <el-form-item prop="username" :label="t('po.auth.username')">
+        <el-input
+          id="register-username"
+          v-model="form.username"
+          :placeholder="t('po.auth.usernamePlaceholder')"
           size="large"
-          :loading="loading"
-          style="width:100%; margin-top:8px"
-          @click="handleRegister"
+          :prefix-icon="User"
+          autocomplete="username"
+        />
+      </el-form-item>
+      <el-form-item prop="password" :label="t('po.auth.password')">
+        <el-input
+          id="register-password"
+          v-model="form.password"
+          :placeholder="t('po.auth.passwordPlaceholder')"
+          size="large"
+          type="password"
+          :prefix-icon="Lock"
+          show-password
+          autocomplete="new-password"
+        />
+      </el-form-item>
+      <el-form-item prop="confirmPassword" :label="t('po.auth.confirmPassword')">
+        <el-input
+          id="register-confirm-password"
+          v-model="form.confirmPassword"
+          :placeholder="t('po.auth.confirmPasswordPlaceholder')"
+          size="large"
+          type="password"
+          :prefix-icon="Lock"
+          show-password
+          autocomplete="new-password"
+        />
+      </el-form-item>
+      <el-form-item prop="role" :label="t('po.auth.role')">
+        <el-select
+          v-model="form.role"
+          :placeholder="t('po.auth.rolePlaceholder')"
+          size="large"
+          class="po-auth-role"
         >
-          {{ $t('auth.registerBtn') }}
-        </el-button>
-      </el-form>
+          <el-option :label="t('po.roles.pathologist')" value="ANNOTATOR" />
+          <el-option :label="t('po.roles.seniorPathologist')" value="REVIEWER" />
+        </el-select>
+      </el-form-item>
+      <el-button
+        type="primary"
+        size="large"
+        :loading="loading"
+        class="po-auth-submit"
+        @click="handleRegister"
+      >
+        {{ t('po.auth.registerAction') }}
+      </el-button>
+    </el-form>
 
-      <div class="login-link">
-        <router-link :to="{ name: 'login' }">{{ $t('auth.toLogin') }}</router-link>
-      </div>
-      <div class="lang-row">
-        <LangSwitch />
-      </div>
+    <div class="po-auth-alternative">
+      <span>{{ t('po.auth.hasAccount') }}</span>
+      <router-link :to="{ name: 'login' }">{{ t('po.auth.loginAction') }}</router-link>
     </div>
-  </div>
+  </AuthShell>
 </template>
 
 <script setup>
@@ -77,7 +77,7 @@ import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
-import LangSwitch from '@/components/LangSwitch.vue'
+import AuthShell from '@/components/AuthShell.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -88,34 +88,34 @@ const form = reactive({
   username: '',
   password: '',
   confirmPassword: '',
-  role: ''
+  role: '',
 })
 
 const rules = {
   username: [
-    { required: true, message: () => t('auth.usernameRequired'), trigger: 'blur' },
-    { min: 3, max: 30, message: () => t('auth.usernameLength'), trigger: 'blur' }
+    { required: true, message: () => t('po.auth.usernameRequired'), trigger: 'blur' },
+    { min: 3, max: 30, message: () => t('po.auth.usernameLength'), trigger: 'blur' },
   ],
   password: [
-    { required: true, message: () => t('auth.passwordRequired'), trigger: 'blur' },
-    { min: 6, message: () => t('auth.passwordMinLength'), trigger: 'blur' }
+    { required: true, message: () => t('po.auth.passwordRequired'), trigger: 'blur' },
+    { min: 6, message: () => t('po.auth.passwordMinLength'), trigger: 'blur' },
   ],
   confirmPassword: [
-    { required: true, message: () => t('auth.confirmPasswordRequired'), trigger: 'blur' },
+    { required: true, message: () => t('po.auth.confirmPasswordRequired'), trigger: 'blur' },
     {
       validator: (_rule, value, callback) => {
         if (value !== form.password) {
-          callback(new Error(t('auth.passwordMismatch')))
+          callback(new Error(t('po.auth.passwordMismatch')))
         } else {
           callback()
         }
       },
-      trigger: 'blur'
-    }
+      trigger: 'blur',
+    },
   ],
   role: [
-    { required: true, message: () => t('auth.roleRequired'), trigger: 'change' }
-  ]
+    { required: true, message: () => t('po.auth.roleRequired'), trigger: 'change' },
+  ],
 }
 
 async function handleRegister() {
@@ -125,10 +125,10 @@ async function handleRegister() {
   loading.value = true
   try {
     await authApi.register(form.username, form.password, form.confirmPassword, form.role)
-    ElMessage.success(t('auth.registerSuccessLogin'))
+    ElMessage.success(t('po.auth.registrationSubmitted'))
     router.push({ name: 'login' })
   } catch {
-    // 错误消息已由 http 拦截器统一处理
+    // The HTTP interceptor presents API errors consistently.
   } finally {
     loading.value = false
   }
@@ -136,57 +136,38 @@ async function handleRegister() {
 </script>
 
 <style scoped>
-.register-page {
-  min-height: 100vh;
+.po-auth-form :deep(.el-form-item__label) {
+  padding-bottom: 6px;
+  color: var(--po-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.po-auth-role,
+.po-auth-submit {
+  width: 100%;
+}
+
+.po-auth-submit {
+  margin-top: 6px;
+}
+
+.po-auth-alternative {
   display: flex;
-  align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
-}
-
-.register-box {
-  width: 380px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 40px 36px 36px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-}
-
-.register-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.logo {
-  font-size: 26px;
-  font-weight: 700;
-  color: #409eff;
-  margin-bottom: 4px;
-}
-
-.subtitle {
-  font-size: 13px;
-  color: #909399;
-}
-
-.login-link {
-  text-align: center;
+  gap: 5px;
   margin-top: 20px;
-  font-size: 13px;
-  color: #909399;
+  color: var(--po-ink-muted);
+  font-size: 12px;
 }
 
-.login-link a {
-  color: #409eff;
+.po-auth-alternative a {
+  color: var(--po-harbor);
+  font-weight: 600;
   text-decoration: none;
 }
 
-.login-link a:hover {
+.po-auth-alternative a:hover {
   text-decoration: underline;
-}
-
-.lang-row {
-  text-align: center;
-  margin-top: 12px;
 }
 </style>

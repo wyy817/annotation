@@ -121,7 +121,9 @@
         view-mode="grid"
         :selectable="selectionMode"
         :selected="selectedIds.has(s.id)"
+        :can-create-case="canCreateCase"
         @open="handleOpen"
+        @create-case="openCaseCreate"
         @move="handleMoveClick"
         @delete="handleDeleteClick"
         @toggle-select="toggleSelect"
@@ -148,7 +150,9 @@
         view-mode="list"
         :selectable="selectionMode"
         :selected="selectedIds.has(s.id)"
+        :can-create-case="canCreateCase"
         @open="handleOpen"
+        @create-case="openCaseCreate"
         @move="handleMoveClick"
         @delete="handleDeleteClick"
         @toggle-select="toggleSelect"
@@ -159,7 +163,15 @@
     <UploadDialog
       v-model="showUpload"
       :workspace-id="workspaceId"
+      :can-create-case="canCreateCase"
       @uploaded="onUploaded"
+      @create-case="openCaseCreateById"
+    />
+
+    <CaseCreateDrawer
+      v-model="showCaseCreate"
+      :initial-slide-id="caseSlideId"
+      @created="onCaseCreated"
     />
 
     <!-- Move dialog -->
@@ -207,9 +219,11 @@ import { ArrowLeft, Upload, Search, Grid, List, Download, Delete as DeleteIcon }
 
 import { useSlideStore } from '@/stores/slideStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useProductStore } from '@/stores/productStore'
 
 import SlideCard from '@/components/SlideCard.vue'
 import UploadDialog from '@/components/UploadDialog.vue'
+import CaseCreateDrawer from '@/components/CaseCreateDrawer.vue'
 import MoveSlideDialog from '@/components/MoveSlideDialog.vue'
 import BatchExportDialog from '@/components/BatchExportDialog.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
@@ -222,6 +236,7 @@ const workspaceId = Number(route.params.id)
 
 const store = useSlideStore()
 const wsStore = useWorkspaceStore()
+const productStore = useProductStore()
 
 const workspace = computed(() => wsStore.workspaces.find((w) => w.id === workspaceId) ?? null)
 
@@ -234,6 +249,8 @@ const viewMode = ref('grid')
 
 // ── dialog state ──────────────────────────────────────────────────────────
 const showUpload = ref(false)
+const showCaseCreate = ref(false)
+const caseSlideId = ref(null)
 const showMove = ref(false)
 const moveTarget = ref(null)
 const showDelete = ref(false)
@@ -246,6 +263,10 @@ const batchDeleting = ref(false)
 // ── selection state ──────────────────────────────────────────────────────
 const selectionMode = ref(false)
 const selectedIds = ref(new Set())
+const canCreateCase = computed(() => (
+  !productStore.isDemoMode
+  && ['AI_DATA_ADMIN', 'SYSTEM_ADMIN'].includes(productStore.effectiveRole)
+))
 
 const isAllSelected = computed(() =>
   filteredSlides.value.length > 0 && selectedIds.value.size === filteredSlides.value.length
@@ -349,6 +370,20 @@ function handleOpen(slide) {
     return
   }
   router.push({ name: 'slideViewer', params: { id: slide.id } })
+}
+
+function openCaseCreate(slide) {
+  openCaseCreateById(slide.id)
+}
+
+function openCaseCreateById(slideId) {
+  if (!canCreateCase.value) return
+  caseSlideId.value = Number(slideId)
+  showCaseCreate.value = true
+}
+
+function onCaseCreated(item) {
+  router.push({ name: 'caseReview', params: { caseId: item.id } })
 }
 
 function handleMoveClick(slide) {

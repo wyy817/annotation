@@ -8,11 +8,12 @@
     <!-- Thumbnail -->
     <div class="thumb-wrap">
       <img
-        v-if="slide.status === 'READY'"
+        v-if="slide.status === 'READY' && !thumbnailFailed"
         :src="`/api/slides/${slide.id}/thumbnail`"
+        :alt="slide.fileName"
         class="thumb-img"
         loading="lazy"
-        @error="imgError = true"
+        @error="thumbnailFailed = true"
       />
       <div v-else class="thumb-placeholder">
         <el-icon v-if="slide.status === 'PENDING' || slide.status === 'PROCESSING'" class="spin">
@@ -43,6 +44,9 @@
       <template #dropdown>
         <el-dropdown-menu>
           <el-dropdown-item command="open" :disabled="slide.status !== 'READY'">{{ $t('fileBrowser.openView') }}</el-dropdown-item>
+          <el-dropdown-item v-if="canCreateCase" command="create-case" :disabled="slide.status !== 'READY'">
+            {{ $t('po.caseCreate.createFromSlide') }}
+          </el-dropdown-item>
           <el-dropdown-item command="move">{{ $t('fileBrowser.moveTo') }}</el-dropdown-item>
           <el-dropdown-item command="delete" divided>{{ $t('common.delete') }}</el-dropdown-item>
         </el-dropdown-menu>
@@ -57,10 +61,12 @@
     </div>
     <div class="row-thumb">
       <img
-        v-if="slide.status === 'READY'"
+        v-if="slide.status === 'READY' && !thumbnailFailed"
         :src="`/api/slides/${slide.id}/thumbnail`"
+        :alt="slide.fileName"
         class="row-thumb-img"
         loading="lazy"
+        @error="thumbnailFailed = true"
       />
       <el-icon v-else style="font-size:24px; color:#c0c4cc"><Picture /></el-icon>
     </div>
@@ -84,6 +90,9 @@
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="open" :disabled="slide.status !== 'READY'">{{ $t('fileBrowser.openView') }}</el-dropdown-item>
+            <el-dropdown-item v-if="canCreateCase" command="create-case" :disabled="slide.status !== 'READY'">
+              {{ $t('po.caseCreate.createFromSlide') }}
+            </el-dropdown-item>
             <el-dropdown-item command="move">{{ $t('fileBrowser.moveTo') }}</el-dropdown-item>
             <el-dropdown-item command="delete" divided>{{ $t('common.delete') }}</el-dropdown-item>
           </el-dropdown-menu>
@@ -94,6 +103,7 @@
 </template>
 
 <script setup>
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Loading, WarningFilled, Picture, MoreFilled } from '@element-plus/icons-vue'
 
@@ -103,13 +113,21 @@ const props = defineProps({
   slide: { type: Object, required: true },
   viewMode: { type: String, default: 'grid' }, // 'grid' | 'list'
   selectable: { type: Boolean, default: false },
-  selected: { type: Boolean, default: false }
+  selected: { type: Boolean, default: false },
+  canCreateCase: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['open', 'move', 'delete', 'toggle-select'])
+const emit = defineEmits(['open', 'move', 'delete', 'toggle-select', 'create-case'])
+const thumbnailFailed = ref(false)
+
+watch(
+  () => [props.slide.id, props.slide.thumbnailPath, props.slide.status],
+  () => { thumbnailFailed.value = false },
+)
 
 function handleCommand(cmd) {
   if (cmd === 'open') emit('open', props.slide)
+  else if (cmd === 'create-case') emit('create-case', props.slide)
   else if (cmd === 'move') emit('move', props.slide)
   else if (cmd === 'delete') emit('delete', props.slide)
 }

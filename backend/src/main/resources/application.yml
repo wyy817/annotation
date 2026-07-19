@@ -10,10 +10,14 @@ spring:
       max-file-size: 4096MB
       max-request-size: 4096MB
   datasource:
-    url: jdbc:postgresql://localhost:5432/wsi_platform
-    username: postgres
-    password: wyy040817
+    url: ${WSI_DB_URL:jdbc:postgresql://localhost:5432/wsi_platform}
+    username: ${WSI_DB_USERNAME:postgres}
+    password: ${WSI_DB_PASSWORD:123}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 3
+    locations: classpath:db
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: UTC
@@ -21,7 +25,6 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       id-type: auto
@@ -32,4 +35,20 @@ wsi:
     tile-dir: ./data/tiles
     export-dir: ./data/exports
   python-service:
-    base-url: http://localhost:8000
+    base-url: ${WSI_PYTHON_SERVICE_URL:http://localhost:8000}
+  ai-analysis:
+    poll-interval-ms: ${WSI_AI_POLL_INTERVAL_MS:2000}
+
+pathorchestra:
+  workflow:
+    low-confidence-disagreement: ${PATHORCHESTRA_LOW_CONFIDENCE_DISAGREEMENT:0.15}
+    boundary-evidence-min: ${PATHORCHESTRA_BOUNDARY_EVIDENCE_MIN:0.35}
+    boundary-evidence-max: ${PATHORCHESTRA_BOUNDARY_EVIDENCE_MAX:0.65}
+    random-qc-percentage: ${PATHORCHESTRA_RANDOM_QC_PERCENTAGE:10}
+  llm:
+    enabled: ${PATHORCHESTRA_LLM_ENABLED:false}
+    base-url: ${PATHORCHESTRA_LLM_BASE_URL:}
+    api-key: ${PATHORCHESTRA_LLM_API_KEY:}
+    model: ${PATHORCHESTRA_LLM_MODEL:gpt5.6}
+    connect-timeout-seconds: ${PATHORCHESTRA_LLM_CONNECT_TIMEOUT_SECONDS:10}
+    read-timeout-seconds: ${PATHORCHESTRA_LLM_READ_TIMEOUT_SECONDS:75}

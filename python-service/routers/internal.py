@@ -22,38 +22,37 @@ SAM env vars:
 """
 
 import base64
+import io
 import math
 import os
 import logging
+import re
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-# On Windows, load openslide-bin DLLs before any openslide import to avoid
-# libtiff.dll ordinal conflicts with the conda environment's tiff.dll.
+# Load OpenSlide before SAM/PyTorch can load a conflicting TIFF DLL on Windows.
 if os.name == "nt":
     try:
-        import openslide
-        if hasattr(openslide, "_load_library"):
-            openslide._load_library()
-    except Exception:
-        pass
-    try:
-        import openslide_bin  # type: ignore
-        os.add_dll_directory(str(Path(openslide_bin.__file__).parent))
+        from pathorchestra_ai.clam_pipeline import _ensure_openslide_runtime
+
+        _ensure_openslide_runtime()
     except Exception:
         pass
 
 import cv2
 import numpy as np
 from PIL import Image
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 STORAGE_ROOT = Path(os.environ.get("STORAGE_ROOT", "./storage")).resolve()
+_SAM_MODEL_TYPE = os.environ.get("SAM_MODEL_TYPE", "vit_t")
+_SAM_PATCH_SIZE = int(os.environ.get("SAM_PATCH_SIZE", "1024"))
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -96,9 +95,9 @@ def _write_dzi(out_dir: Path, width: int, height: int,
 # ── Request / Response models ─────────────────────────────────────────────────
 
 class ProcessSlideRequest(BaseModel):
-    slide_id: int
-    file_path: str
-    tile_size: int = 256
+    slide_id: int = Field(gt=0)
+    file_path: str = Field(min_length=1)
+    tile_size: int = Field(default=256, ge=64, le=2048)
 
 
 class ProcessSlideResponse(BaseModel):
@@ -111,12 +110,12 @@ class ProcessSlideResponse(BaseModel):
 
 
 class GenerateMaskRequest(BaseModel):
-    slide_id: int
-    width: int
-    height: int
-    annotations: list[dict[str, Any]]
+    slide_id: int = Field(gt=0)
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+    annotations: list[dict[str, Any]] = Field(default_factory=list)
     mask_type: str = "SEMANTIC"   # SEMANTIC | COLOR | INSTANCE
-    mask_scale: int = 1           # downsample factor (1/2/4/8)
+    mask_scale: Literal[1, 2, 4, 8] = 1
 
 
 class GenerateMaskResponse(BaseModel):
@@ -125,10 +124,10 @@ class GenerateMaskResponse(BaseModel):
 
 
 class ExtractPatchesRequest(BaseModel):
-    slide_id: int
-    file_path: str
-    annotations: list[dict[str, Any]]
-    patch_size: int = 256
+    slide_id: int = Field(gt=0)
+    file_path: str = Field(min_length=1)
+    annotations: list[dict[str, Any]] = Field(default_factory=list)
+    patch_size: int = Field(default=256, ge=16, le=4096)
 
 
 class ExtractPatchesResponse(BaseModel):
@@ -138,13 +137,13 @@ class ExtractPatchesResponse(BaseModel):
 
 
 class SamPredictRequest(BaseModel):
-    slide_id: int
-    file_path: str
-    level: int = 0                     # WSI pyramid level (0 = full resolution)
-    points: list[list[float]] = []     # [[x,y], ...] in level-0 WSI global coords
-    point_labels: list[int] = []       # 1=foreground, 0=background (per point)
-    box: list[float] | None = None     # [x1,y1,x2,y2] in level-0 WSI coords
-    patch_size: int = 1024             # pixel size of region extracted for SAM
+    slide_id: int = Field(gt=0)
+    file_path: str = Field(min_length=1)
+    level: int = Field(default=0, ge=0)
+    points: list[tuple[float, float]] = Field(default_factory=list)
+    point_labels: list[Literal[0, 1]] = Field(default_factory=list)
+    box: tuple[float, float, float, float] | None = None
+    patch_size: int = Field(default=_SAM_PATCH_SIZE, ge=64, le=4096)
 
 
 class SamPredictResponse(BaseModel):
@@ -155,12 +154,11 @@ class SamPredictResponse(BaseModel):
 
 # ── SAM lazy loader ───────────────────────────────────────────────────────────
 
-_SAM_MODEL_TYPE = os.environ.get("SAM_MODEL_TYPE", "vit_t")
-_SAM_PATCH_SIZE = int(os.environ.get("SAM_PATCH_SIZE", "1024"))
-
 _sam_predictor = None
 _sam_lock = threading.Lock()
 _sam_infer_lock = threading.Lock()  # SAM predictor is stateful; serialise per-request
+_tile_locks: dict[int, threading.Lock] = {}
+_tile_locks_guard = threading.Lock()
 
 
 def _get_sam_predictor():
@@ -203,6 +201,11 @@ def _get_sam_predictor():
     return _sam_predictor
 
 
+def _get_tile_lock(slide_id: int) -> threading.Lock:
+    with _tile_locks_guard:
+        return _tile_locks.setdefault(slide_id, threading.Lock())
+
+
 # ── Supported formats ─────────────────────────────────────────────────────────
 
 # Extensions handled by OpenSlide (multi-resolution WSI formats)
@@ -215,7 +218,11 @@ STANDARD_EXTS = {".png", ".jpg", ".jpeg"}
 # ── Tile generation ───────────────────────────────────────────────────────────
 
 def _gen_tiles_openslide(file_path: str, slide_id: int, tile_size: int):
-    """DeepZoom tiles for any OpenSlide-supported WSI format."""
+    """Prepare DeepZoom metadata and a thumbnail for a WSI.
+
+    Full WSI pyramids can contain hundreds of thousands of tiles. Individual
+    tiles are therefore rendered and cached by ``get_slide_tile`` on demand.
+    """
     from openslide import OpenSlide
     from openslide.deepzoom import DeepZoomGenerator
 
@@ -226,30 +233,69 @@ def _gen_tiles_openslide(file_path: str, slide_id: int, tile_size: int):
         max_zoom = dz.level_count - 1
 
         out_dir = _tile_out_dir(slide_id)
-        files_dir = out_dir / "slide_files"
-
-        for level in range(dz.level_count):
-            level_dir = _mkdir(files_dir / str(level))
-            cols, rows = dz.level_tiles[level]
-            for col in range(cols):
-                for row in range(rows):
-                    tile = dz.get_tile(level, (col, row))
-                    tile.save(str(level_dir / f"{col}_{row}.jpg"), "JPEG", quality=85)
-
         _write_dzi(out_dir, width, height, tile_size, overlap=1)
 
-        thumb = slide.get_thumbnail((512, 512))
         thumb_path = _thumbnail_path(slide_id)
-        thumb.save(str(thumb_path), "JPEG", quality=85)
+        if not thumb_path.is_file():
+            thumb = slide.get_thumbnail((512, 512)).convert("RGB")
+            thumb.save(str(thumb_path), "JPEG", quality=85)
 
         return width, height, max_zoom, str(out_dir), str(thumb_path)
     finally:
         slide.close()
 
 
+def _render_openslide_tile(file_path: str, tile_size: int,
+                           level: int, col: int, row: int) -> bytes:
+    from openslide import OpenSlide
+    from openslide.deepzoom import DeepZoomGenerator
+
+    slide = OpenSlide(file_path)
+    try:
+        dz = DeepZoomGenerator(slide, tile_size=tile_size, overlap=1)
+        if level < 0 or level >= dz.level_count:
+            raise ValueError("DeepZoom level is out of range")
+        cols, rows = dz.level_tiles[level]
+        if col < 0 or row < 0 or col >= cols or row >= rows:
+            raise ValueError("DeepZoom tile coordinate is out of range")
+
+        tile = dz.get_tile(level, (col, row)).convert("RGB")
+        payload = io.BytesIO()
+        tile.save(payload, "JPEG", quality=85)
+        return payload.getvalue()
+    finally:
+        slide.close()
+
+
+def _get_cached_openslide_tile(file_path: str, slide_id: int, tile_size: int,
+                               level: int, col: int, row: int) -> bytes:
+    tile_path = (
+        _tile_out_dir(slide_id)
+        / "slide_files"
+        / str(level)
+        / f"{col}_{row}.jpg"
+    )
+    if tile_path.is_file():
+        return tile_path.read_bytes()
+
+    with _get_tile_lock(slide_id):
+        if tile_path.is_file():
+            return tile_path.read_bytes()
+
+        payload = _render_openslide_tile(
+            file_path, tile_size, level, col, row
+        )
+        _mkdir(tile_path.parent)
+        temp_path = tile_path.with_name(f"{tile_path.name}.tmp")
+        temp_path.write_bytes(payload)
+        temp_path.replace(tile_path)
+        return payload
+
+
 def _gen_tiles_standard(file_path: str, slide_id: int, tile_size: int):
     """DeepZoom tiles for PNG/JPG via Pillow (overlap=0)."""
-    img = Image.open(file_path).convert("RGB")
+    with Image.open(file_path) as source:
+        img = source.convert("RGB")
     width, height = img.size
 
     # DZI level numbering: level max_zoom = full resolution
@@ -291,7 +337,7 @@ def _gen_tiles_standard(file_path: str, slide_id: int, tile_size: int):
 
 # ── Mask rendering ────────────────────────────────────────────────────────────
 
-def _draw_annotation(mask: np.ndarray, ann: dict) -> None:
+def _draw_annotation(mask: np.ndarray, ann: dict, coordinate_scale: int = 1) -> None:
     """Paint one annotation onto the mask with its class index."""
     ann_type = ann.get("type", "polygon")
     class_idx = int(ann.get("label_class_index", 1))
@@ -301,25 +347,32 @@ def _draw_annotation(mask: np.ndarray, ann: dict) -> None:
         # coords = [[x1,y1],[x2,y2]]
         if len(coords) < 2:
             return
-        x1, y1 = int(coords[0][0]), int(coords[0][1])
-        x2, y2 = int(coords[1][0]), int(coords[1][1])
+        x1 = int(coords[0][0] / coordinate_scale)
+        y1 = int(coords[0][1] / coordinate_scale)
+        x2 = int(coords[1][0] / coordinate_scale)
+        y2 = int(coords[1][1] / coordinate_scale)
         cv2.rectangle(mask, (min(x1, x2), min(y1, y2)),
                       (max(x1, x2), max(y1, y2)), class_idx, thickness=-1)
 
     elif ann_type == "polygon":
         if len(coords) < 3:
             return
-        pts = np.array(coords, dtype=np.int32).reshape((-1, 1, 2))
+        pts = (np.array(coords, dtype=np.float64) / coordinate_scale).astype(
+            np.int32
+        )
+        pts = pts.reshape((-1, 1, 2))
         cv2.fillPoly(mask, [pts], class_idx)
 
     elif ann_type == "brush":
         # coords = [{"points":[[x,y],...],"size":20}, ...]
         for stroke in coords:
             pts_raw = stroke.get("points", [])
-            size = int(stroke.get("size", 10))
+            size = max(1, int(stroke.get("size", 10) / coordinate_scale))
             if len(pts_raw) < 1:
                 continue
-            pts = np.array(pts_raw, dtype=np.int32)
+            pts = (np.array(pts_raw, dtype=np.float64) / coordinate_scale).astype(
+                np.int32
+            )
             if len(pts_raw) == 1:
                 cv2.circle(mask, (pts[0][0], pts[0][1]), size // 2, class_idx, -1)
             else:
@@ -330,7 +383,8 @@ def _draw_annotation(mask: np.ndarray, ann: dict) -> None:
                     cv2.circle(mask, (int(pt[0]), int(pt[1])), size // 2, class_idx, -1)
 
 
-def _draw_annotation_value(mask: np.ndarray, ann: dict, value: int) -> None:
+def _draw_annotation_value(mask: np.ndarray, ann: dict, value: int,
+                           coordinate_scale: int = 1) -> None:
     """Paint one annotation with an arbitrary integer value (for instance masks)."""
     ann_type = ann.get("type", "polygon")
     coords = ann.get("coordinates", [])
@@ -338,24 +392,31 @@ def _draw_annotation_value(mask: np.ndarray, ann: dict, value: int) -> None:
     if ann_type == "rect":
         if len(coords) < 2:
             return
-        x1, y1 = int(coords[0][0]), int(coords[0][1])
-        x2, y2 = int(coords[1][0]), int(coords[1][1])
+        x1 = int(coords[0][0] / coordinate_scale)
+        y1 = int(coords[0][1] / coordinate_scale)
+        x2 = int(coords[1][0] / coordinate_scale)
+        y2 = int(coords[1][1] / coordinate_scale)
         cv2.rectangle(mask, (min(x1, x2), min(y1, y2)),
                       (max(x1, x2), max(y1, y2)), int(value), thickness=-1)
 
     elif ann_type == "polygon":
         if len(coords) < 3:
             return
-        pts = np.array(coords, dtype=np.int32).reshape((-1, 1, 2))
+        pts = (np.array(coords, dtype=np.float64) / coordinate_scale).astype(
+            np.int32
+        )
+        pts = pts.reshape((-1, 1, 2))
         cv2.fillPoly(mask, [pts], int(value))
 
     elif ann_type == "brush":
         for stroke in coords:
             pts_raw = stroke.get("points", [])
-            size = int(stroke.get("size", 10))
+            size = max(1, int(stroke.get("size", 10) / coordinate_scale))
             if len(pts_raw) < 1:
                 continue
-            pts = np.array(pts_raw, dtype=np.int32)
+            pts = (np.array(pts_raw, dtype=np.float64) / coordinate_scale).astype(
+                np.int32
+            )
             if len(pts_raw) == 1:
                 cv2.circle(mask, (pts[0][0], pts[0][1]), size // 2, int(value), -1)
             else:
@@ -441,6 +502,12 @@ def _annotation_bbox(ann: dict) -> tuple[int, int, int, int] | None:
     return None
 
 
+def _safe_label_name(value: Any) -> str:
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", str(value))
+    name = name.strip(" ._")[:80]
+    return name or "unknown"
+
+
 def _read_region_openslide(file_path: str, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
     from openslide import OpenSlide
     slide = OpenSlide(file_path)
@@ -485,6 +552,48 @@ def process_slide(req: ProcessSlideRequest):
     )
 
 
+@router.get("/slides/{slide_id}/tiles/{level}/{col}/{row}")
+def get_slide_tile(
+    slide_id: int,
+    level: int,
+    col: int,
+    row: int,
+    file_path: str = Query(min_length=1),
+    tile_size: int = Query(default=256, ge=64, le=2048),
+):
+    """Render one OpenSlide DeepZoom tile and retain it in the local cache."""
+    if slide_id <= 0 or level < 0 or col < 0 or row < 0:
+        raise HTTPException(status_code=422, detail="Invalid tile coordinate")
+
+    source = Path(file_path)
+    if not source.is_file():
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+    if source.suffix.lower() not in OPENSLIDE_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail="On-demand tiles require an OpenSlide-supported WSI",
+        )
+
+    try:
+        payload = _get_cached_openslide_tile(
+            file_path, slide_id, tile_size, level, col, row
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception(
+            "On-demand tile failed for slide_id=%d level=%d col=%d row=%d",
+            slide_id, level, col, row,
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return Response(
+        content=payload,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
 @router.post("/generate-mask", response_model=GenerateMaskResponse)
 def generate_mask(req: GenerateMaskRequest):
     """Render vector annotations into a mask PNG.
@@ -503,15 +612,12 @@ def generate_mask(req: GenerateMaskRequest):
 
     if mask_type == "COLOR":
         # Draw semantic mask first, then map to colours
-        raw = np.zeros((req.height, req.width), dtype=np.uint8)
+        raw = np.zeros((out_h, out_w), dtype=np.uint8)
         for ann in req.annotations:
             try:
-                _draw_annotation(raw, ann)
+                _draw_annotation(raw, ann, coordinate_scale=scale)
             except Exception as e:
                 logger.warning("Skipping annotation (id=%s): %s", ann.get("id"), e)
-
-        if scale > 1:
-            raw = cv2.resize(raw, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
 
         # Map class indices to distinct RGB colours
         mask_rgb = _class_index_to_rgb(raw)
@@ -520,15 +626,12 @@ def generate_mask(req: GenerateMaskRequest):
             raise HTTPException(status_code=500, detail="Failed to write mask PNG")
 
     elif mask_type == "INSTANCE":
-        mask = np.zeros((req.height, req.width), dtype=np.uint16)
+        mask = np.zeros((out_h, out_w), dtype=np.uint16)
         for idx, ann in enumerate(req.annotations, start=1):
             try:
-                _draw_annotation_value(mask, ann, idx)
+                _draw_annotation_value(mask, ann, idx, coordinate_scale=scale)
             except Exception as e:
                 logger.warning("Skipping annotation (id=%s): %s", ann.get("id"), e)
-
-        if scale > 1:
-            mask = cv2.resize(mask, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
 
         out_path = _mask_path(req.slide_id)
         if not cv2.imwrite(str(out_path), mask):
@@ -536,15 +639,12 @@ def generate_mask(req: GenerateMaskRequest):
 
     else:
         # SEMANTIC (default)
-        mask = np.zeros((req.height, req.width), dtype=np.uint8)
+        mask = np.zeros((out_h, out_w), dtype=np.uint8)
         for ann in req.annotations:
             try:
-                _draw_annotation(mask, ann)
+                _draw_annotation(mask, ann, coordinate_scale=scale)
             except Exception as e:
                 logger.warning("Skipping annotation (id=%s): %s", ann.get("id"), e)
-
-        if scale > 1:
-            mask = cv2.resize(mask, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
 
         out_path = _mask_path(req.slide_id)
         if not cv2.imwrite(str(out_path), mask):
@@ -604,10 +704,12 @@ def extract_patches(req: ExtractPatchesRequest):
                            ann.get("id"), e)
             continue
 
-        label_name = ann.get("label_name", "unknown").replace(" ", "_")
+        label_name = _safe_label_name(ann.get("label_name", "unknown"))
         out_path = patch_dir / f"{label_name}_patch_{patch_count:04d}.png"
-        cv2.imwrite(str(out_path), patch)
-        patch_count += 1
+        if cv2.imwrite(str(out_path), patch):
+            patch_count += 1
+        else:
+            logger.warning("Failed to write patch for ann id=%s", ann.get("id"))
 
     return ExtractPatchesResponse(
         slide_id=req.slide_id,
@@ -636,13 +738,18 @@ def sam_predict(req: SamPredictRequest):
         raise HTTPException(status_code=400,
                             detail="points and point_labels must have equal length")
 
-    predictor = _get_sam_predictor()
-
     if not Path(req.file_path).exists():
         raise HTTPException(status_code=404,
                             detail=f"File not found: {req.file_path}")
 
     ext = Path(req.file_path).suffix.lower()
+    if ext not in OPENSLIDE_EXTS | STANDARD_EXTS:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
+    if ext in STANDARD_EXTS and req.level != 0:
+        raise HTTPException(status_code=400,
+                            detail="Standard images only support level 0")
+
+    predictor = _get_sam_predictor()
     is_openslide = ext in OPENSLIDE_EXTS
 
     try:
