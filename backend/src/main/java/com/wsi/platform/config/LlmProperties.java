@@ -4,7 +4,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Data
-@ConfigurationProperties(prefix = "pathorchestra.llm")
+@ConfigurationProperties(prefix = "parvisight.llm")
 public class LlmProperties {
 
     private boolean enabled = false;

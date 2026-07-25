@@ -1,4 +1,4 @@
-# Product
+# PARVISIGHT（观隅） Product
 
 ## Register
 
@@ -6,7 +6,7 @@ product
 
 ## Users
 
-Pathorchestra serves four primary roles in a hospital pathology workflow:
+PARVISIGHT serves four primary roles in a hospital pathology workflow:
 
 - Pathologists triage assigned cases, inspect whole-slide images and AI evidence, record notes, adjust annotations, and make the final clinical decision.
 - Senior pathologists review cases escalated by a pathologist, flagged for low AI confidence or image-text disagreement, or selected for random quality control.
@@ -17,7 +17,7 @@ The primary working environment is a desktop pathology workstation. The initial 
 
 ## Product Purpose
 
-Pathorchestra is a B2B, AI-assisted pathology workflow platform. It turns incoming WSI cases and pathology reports into a prioritized work queue, presents explainable image and text evidence in the slide viewer, keeps the pathologist in control of every decision, and routes reviewed annotations into a governed feedback pool.
+PARVISIGHT is a B2B, AI-assisted pathology workflow platform. It turns incoming WSI cases and pathology reports into a prioritized work queue, presents explainable image and text evidence in the slide viewer, keeps the pathologist in control of every decision, and routes reviewed annotations into a governed feedback pool.
 
 The first product-grade prototype must demonstrate one coherent workflow:
 

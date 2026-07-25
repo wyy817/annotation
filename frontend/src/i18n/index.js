@@ -1,8 +1,8 @@
 import { createI18n } from 'vue-i18n'
 import zhCN from './zh-CN'
 import enUS from './en-US'
-import pathorchestraZh from './pathorchestra.zh'
-import pathorchestraEn from './pathorchestra.en'
+import parvisightZh from './parvisight.zh'
+import parvisightEn from './parvisight.en'
 
 const STORAGE_KEY = 'wsi-lang'
 
@@ -20,8 +20,8 @@ export const i18n = createI18n({
   locale: initialLocale,
   fallbackLocale: 'en-US',
   messages: {
-    'zh-CN': { ...zhCN, po: pathorchestraZh },
-    'en-US': { ...enUS, po: pathorchestraEn },
+    'zh-CN': { ...zhCN, po: parvisightZh },
+    'en-US': { ...enUS, po: parvisightEn },
   },
 })
 

@@ -188,17 +188,27 @@
                   </time>
                 </td>
                 <td class="po-action-cell">
-                  <el-tooltip
-                    :content="t(isReadOnly ? 'po.queue.readCase' : 'po.queue.openCase')"
-                    placement="left"
-                  >
-                    <el-button
-                      :aria-label="t(isReadOnly ? 'po.queue.readCase' : 'po.queue.openCase')"
-                      class="po-open-button"
-                      :icon="ArrowRight"
-                      @click="router.push({ name: 'caseReview', params: { caseId: caseItem.id } })"
-                    />
-                  </el-tooltip>
+                  <div class="po-case-actions">
+                    <el-tooltip
+                      :content="t(isReadOnly ? 'po.queue.readCase' : 'po.queue.openCase')"
+                      placement="left"
+                    >
+                      <el-button
+                        :aria-label="t(isReadOnly ? 'po.queue.readCase' : 'po.queue.openCase')"
+                        class="po-open-button"
+                        :icon="ArrowRight"
+                        @click="router.push({ name: 'caseReview', params: { caseId: caseItem.id } })"
+                      />
+                    </el-tooltip>
+                    <el-tooltip v-if="canDeleteCase(caseItem)" :content="t('po.queue.deleteCase')" placement="left">
+                      <el-button
+                        :aria-label="t('po.queue.deleteCase')"
+                        class="po-delete-button"
+                        :icon="Delete"
+                        @click="confirmDeleteCase(caseItem)"
+                      />
+                    </el-tooltip>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -222,6 +232,15 @@
                   <span>{{ caseItem.owner || t('po.queue.unassigned') }}</span>
                   <time :datetime="caseItem.dueAt">{{ formatDateTime(caseItem.dueAt, locale) }}</time>
                   <el-icon aria-hidden="true"><ArrowRight /></el-icon>
+                  <el-button
+                    v-if="canDeleteCase(caseItem)"
+                    class="po-mobile-delete"
+                    type="danger"
+                    link
+                    :icon="Delete"
+                    :aria-label="t('po.queue.deleteCase')"
+                    @click.stop.prevent="confirmDeleteCase(caseItem)"
+                  />
                 </div>
               </router-link>
             </article>
@@ -249,6 +268,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowRight,
+  Delete,
   Filter,
   FolderOpened,
   Plus,
@@ -279,9 +299,38 @@ const statusOptions = ['ready', 'in_review', 'senior_review', 'returned', 'compl
 const canCreateCase = computed(() => (
   ['AI_DATA_ADMIN', 'SYSTEM_ADMIN'].includes(productStore.effectiveRole)
 ))
+const canDeleteCases = computed(() => (
+  !productStore.isDemoMode && ['AI_DATA_ADMIN', 'SYSTEM_ADMIN'].includes(productStore.effectiveRole)
+))
 
 function openCreatedCase(item) {
   router.push({ name: 'caseReview', params: { caseId: item.id } })
+}
+
+function canDeleteCase(caseItem) {
+  return canDeleteCases.value
+    && caseItem.workflow.status === 'ready'
+    && !caseItem.ai.analysisStatus
+}
+
+async function confirmDeleteCase(caseItem) {
+  try {
+    await ElMessageBox.confirm(
+      t('po.queue.deleteCaseConfirm', { id: caseItem.id }),
+      t('po.queue.deleteCaseTitle'),
+      {
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+      },
+    )
+    await caseStore.deleteCase(caseItem.id)
+    ElMessage.success(t('po.queue.deleteCaseSuccess'))
+  } catch (cause) {
+    if (cause !== 'cancel' && cause !== 'close') {
+      ElMessage.error(cause?.message || t('common.failed'))
+    }
+  }
 }
 
 onMounted(() => caseStore.loadCases())
@@ -604,7 +653,7 @@ async function resetDemoData() {
 .po-case-table th:nth-child(6) { width: 128px; }
 .po-case-table th:nth-child(7) { width: 128px; }
 .po-case-table th:nth-child(8) { width: 132px; }
-.po-case-table th:nth-child(9) { width: 52px; }
+.po-case-table th:nth-child(9) { width: 100px; }
 
 .po-case-table td {
   height: 62px;
@@ -624,6 +673,24 @@ async function resetDemoData() {
 }
 
 .po-case-table tbody tr:hover {
+  background: var(--po-canvas);
+}
+
+.po-case-table th:last-child,
+.po-case-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--po-paper);
+  box-shadow: -1px 0 0 var(--po-hairline);
+}
+
+.po-case-table th:last-child {
+  z-index: 2;
+  background: var(--po-surface-subtle);
+}
+
+.po-case-table tbody tr:hover td:last-child {
   background: var(--po-canvas);
 }
 
@@ -721,15 +788,42 @@ async function resetDemoData() {
 }
 
 .po-action-cell {
+  min-width: 100px;
   text-align: right;
 }
 
+.po-case-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.po-case-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
 .po-open-button {
-  width: 34px;
-  min-height: 34px;
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
   padding: 0;
   border-color: var(--po-hairline);
   border-radius: var(--po-radius-sm);
+}
+
+.po-delete-button {
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-color: oklch(0.86 0.08 25);
+  border-radius: var(--po-radius-sm);
+  color: var(--po-risk);
 }
 
 .po-mobile-cases {
@@ -893,6 +987,11 @@ async function resetDemoData() {
   .po-mobile-case-foot {
     padding-top: 10px;
     border-top: 1px solid var(--po-hairline);
+  }
+
+  .po-mobile-delete {
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 
   .po-mobile-case-foot .el-icon {

@@ -1,7 +1,7 @@
 import { BREAST_LYMPH_NODE_HE } from '@/domain/diseaseProfiles'
 
 const DEFAULT_MODEL = Object.freeze({
-  name: 'Pathorchestra Demo Triage',
+  name: 'PARVISIGHT Demo Triage',
   version: '0.3.0-demo',
   outputType: 'deterministic-simulation',
 })

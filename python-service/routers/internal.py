@@ -34,7 +34,7 @@ from typing import Any, Literal
 # Load OpenSlide before SAM/PyTorch can load a conflicting TIFF DLL on Windows.
 if os.name == "nt":
     try:
-        from pathorchestra_ai.clam_pipeline import _ensure_openslide_runtime
+        from parvisight_ai.clam_pipeline import _ensure_openslide_runtime
 
         _ensure_openslide_runtime()
     except Exception:

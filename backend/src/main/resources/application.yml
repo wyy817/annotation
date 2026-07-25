@@ -39,16 +39,16 @@ wsi:
   ai-analysis:
     poll-interval-ms: ${WSI_AI_POLL_INTERVAL_MS:2000}
 
-pathorchestra:
+parvisight:
   workflow:
-    low-confidence-disagreement: ${PATHORCHESTRA_LOW_CONFIDENCE_DISAGREEMENT:0.15}
-    boundary-evidence-min: ${PATHORCHESTRA_BOUNDARY_EVIDENCE_MIN:0.35}
-    boundary-evidence-max: ${PATHORCHESTRA_BOUNDARY_EVIDENCE_MAX:0.65}
-    random-qc-percentage: ${PATHORCHESTRA_RANDOM_QC_PERCENTAGE:10}
+    low-confidence-disagreement: ${PARVISIGHT_LOW_CONFIDENCE_DISAGREEMENT:0.15}
+    boundary-evidence-min: ${PARVISIGHT_BOUNDARY_EVIDENCE_MIN:0.35}
+    boundary-evidence-max: ${PARVISIGHT_BOUNDARY_EVIDENCE_MAX:0.65}
+    random-qc-percentage: ${PARVISIGHT_RANDOM_QC_PERCENTAGE:10}
   llm:
-    enabled: ${PATHORCHESTRA_LLM_ENABLED:false}
-    base-url: ${PATHORCHESTRA_LLM_BASE_URL:}
-    api-key: ${PATHORCHESTRA_LLM_API_KEY:}
-    model: ${PATHORCHESTRA_LLM_MODEL:gpt5.6}
-    connect-timeout-seconds: ${PATHORCHESTRA_LLM_CONNECT_TIMEOUT_SECONDS:10}
-    read-timeout-seconds: ${PATHORCHESTRA_LLM_READ_TIMEOUT_SECONDS:75}
+    enabled: ${PARVISIGHT_LLM_ENABLED:false}
+    base-url: ${PARVISIGHT_LLM_BASE_URL:}
+    api-key: ${PARVISIGHT_LLM_API_KEY:}
+    model: ${PARVISIGHT_LLM_MODEL:gpt5.6}
+    connect-timeout-seconds: ${PARVISIGHT_LLM_CONNECT_TIMEOUT_SECONDS:10}
+    read-timeout-seconds: ${PARVISIGHT_LLM_READ_TIMEOUT_SECONDS:75}

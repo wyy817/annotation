@@ -4,7 +4,7 @@
 
     <header class="po-topbar">
       <div class="po-topbar-primary">
-        <router-link class="po-brand" :to="{ name: 'cases' }" aria-label="Pathorchestra">
+        <router-link class="po-brand" :to="{ name: 'cases' }" aria-label="PARVISIGHT">
           <span class="po-brand-mark" aria-hidden="true">
             <span></span>
             <span></span>

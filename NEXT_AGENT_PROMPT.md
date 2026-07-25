@@ -3,7 +3,7 @@
 Copy the prompt below into the next agent session.
 
 ```text
-你是接力开发 Pathorchestra Platform 的 Codex agent。请先阅读当前仓库里的交接文档：
+你是接力开发 PARVISIGHT Platform 的 Codex agent。请先阅读当前仓库里的交接文档：
 
 D:\Users\yijun\OneDrive\ic_gcl\annotation\AGENT_HANDOFF.md
 
@@ -82,7 +82,7 @@ cd backend
 mvn test
 
 cd ..\python-service
-conda run -n pathorchestra-py --no-capture-output python -m unittest discover -s tests -v
+conda run -n parvisight-py --no-capture-output python -m unittest discover -s tests -v
 
 cd ..\frontend
 npm run build

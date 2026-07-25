@@ -1,9 +1,9 @@
-# Pathorchestra Local Runbook
+# PARVISIGHT Local Runbook
 
 ## Start the complete stack
 
 Prerequisites: Java 21, Maven, Node.js, PostgreSQL, Miniforge, and the
-`pathorchestra-py` Conda environment. The `wsi_platform` PostgreSQL database
+`parvisight-py` Conda environment. The `wsi_platform` PostgreSQL database
 must exist and be reachable with the settings in
 `backend/src/main/resources/application.yml`.
 
@@ -101,7 +101,7 @@ cd backend
 mvn test
 
 cd ..\python-service
-conda run -n pathorchestra-py --no-capture-output python -m unittest discover -s tests -v
+conda run -n parvisight-py --no-capture-output python -m unittest discover -s tests -v
 
 cd ..\frontend
 npm run build

@@ -9,7 +9,7 @@ import {
   normalizeProductRole,
 } from '@/config/product'
 
-const ROLE_STORAGE_KEY = 'pathorchestra_demo_role'
+const ROLE_STORAGE_KEY = 'parvisight_demo_role'
 
 function readStoredRole() {
   const stored = localStorage.getItem(ROLE_STORAGE_KEY)

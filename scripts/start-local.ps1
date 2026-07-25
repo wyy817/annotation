@@ -3,7 +3,7 @@ param(
     [string]$DataRoot = "",
     [string]$RelayConfigPath = "",
     [string]$LlmModelOverride = "",
-    [string]$CondaEnvironment = "pathorchestra-py",
+    [string]$CondaEnvironment = "parvisight-py",
     [string]$SamCheckpoint = "",
     [ValidateSet("vit_t", "vit_b", "vit_l", "vit_h")]
     [string]$SamModelType = "vit_t",
@@ -15,7 +15,15 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $workspaceRoot = Split-Path $repoRoot -Parent
 
 if (-not $DataRoot) {
-    $DataRoot = Join-Path $workspaceRoot "PathorchestraData"
+    $DataRoot = Join-Path $workspaceRoot "PARVISIGHTData"
+    $legacyDataRoot = Join-Path $workspaceRoot "PathorchestraData"
+    if (-not (Test-Path -LiteralPath $DataRoot) -and (Test-Path -LiteralPath $legacyDataRoot)) {
+        Write-Warning "Using legacy data directory: $legacyDataRoot"
+        $DataRoot = $legacyDataRoot
+    }
+}
+if (-not (Test-Path -LiteralPath $DataRoot)) {
+    throw "Data directory not found: $DataRoot"
 }
 $DataRoot = (Resolve-Path $DataRoot).Path
 
@@ -156,6 +164,23 @@ $env:SAM_CHECKPOINT = (Resolve-Path $SamCheckpoint).Path
 $env:SAM_MODEL_TYPE = $SamModelType
 
 $conda = (Get-Command conda.exe -ErrorAction Stop).Source
+$condaEnvironments = @(
+    & $conda env list 2>$null |
+        ForEach-Object {
+            $line = $_.ToString().Trim()
+            if ($line -and $line -notmatch '^#') {
+                ($line -split '\s+')[0]
+            }
+        }
+)
+if ($condaEnvironments -notcontains $CondaEnvironment) {
+    if ($CondaEnvironment -eq "parvisight-py" -and $condaEnvironments -contains "pathorchestra-py") {
+        Write-Warning "Conda environment parvisight-py is not installed; using legacy pathorchestra-py."
+        $CondaEnvironment = "pathorchestra-py"
+    } else {
+        throw "Conda environment not found: $CondaEnvironment"
+    }
+}
 Start-LocalProcess `
     -Name "python-service" `
     -Port 8000 `
@@ -163,7 +188,7 @@ Start-LocalProcess `
     -ArgumentList @("run", "--no-capture-output", "-n", $CondaEnvironment, "python", "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000") `
     -WorkingDirectory (Join-Path $repoRoot "python-service")
 
-$env:PATHORCHESTRA_LLM_ENABLED = "false"
+$env:PARVISIGHT_LLM_ENABLED = "false"
 if (-not $DisableLlm) {
     if (-not $RelayConfigPath -or -not (Test-Path -LiteralPath $RelayConfigPath)) {
         throw "Relay configuration not found: $RelayConfigPath"
@@ -183,10 +208,10 @@ if (-not $DisableLlm) {
         throw "Relay configuration must define Base URL, api key, and model."
     }
 
-    $env:PATHORCHESTRA_LLM_ENABLED = "true"
-    $env:PATHORCHESTRA_LLM_BASE_URL = $relay["base url"]
-    $env:PATHORCHESTRA_LLM_API_KEY = $relay["api key"]
-    $env:PATHORCHESTRA_LLM_MODEL = if ($LlmModelOverride) {
+    $env:PARVISIGHT_LLM_ENABLED = "true"
+    $env:PARVISIGHT_LLM_BASE_URL = $relay["base url"]
+    $env:PARVISIGHT_LLM_API_KEY = $relay["api key"]
+    $env:PARVISIGHT_LLM_MODEL = if ($LlmModelOverride) {
         $LlmModelOverride
     } else {
         $relay["model"]
@@ -210,7 +235,7 @@ Start-LocalProcess `
     -WorkingDirectory (Join-Path $repoRoot "frontend")
 
 Write-Host ""
-Write-Host "Pathorchestra local stack is ready:"
+Write-Host "PARVISIGHT local stack is ready:"
 Write-Host "  Product: http://127.0.0.1:5173"
 Write-Host "  API:     http://127.0.0.1:8080"
 Write-Host "  AI:      http://127.0.0.1:8000/docs"

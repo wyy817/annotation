@@ -1,5 +1,5 @@
 export default {
-  brandName: 'Pathorchestra',
+  brandName: '观隅',
   brandTagline: '临床证据工作台',
   common: {
     skipToContent: '跳转到主要内容',
@@ -21,7 +21,7 @@ export default {
   auth: {
     secureAccess: '本地安全访问',
     localBoundary: '完整登录与文件上传仅在本地系统中启用。',
-    loginTitle: '登录 Pathorchestra',
+    loginTitle: '登录观隅',
     loginSubtitle: '使用已获批准的医院工作区账户。',
     registerTitle: '申请账户',
     registerSubtitle: '新账户需要由系统管理员审核批准。',
@@ -104,6 +104,10 @@ export default {
     clearFilters: '清除筛选',
     openCase: '打开病例',
     readCase: '查看病例',
+    deleteCase: '删除病例',
+    deleteCaseTitle: '删除病例',
+    deleteCaseConfirm: '确定删除病例“{id}”吗？仅未开始分析的病例可以删除。',
+    deleteCaseSuccess: '病例已删除',
     summaryAttention: '需要处理',
     summaryHighRisk: '高风险',
     summaryInReview: '审阅中',

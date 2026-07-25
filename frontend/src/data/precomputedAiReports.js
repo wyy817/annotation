@@ -126,7 +126,7 @@ export function createPrecomputedReport(analysis, caseItem, language) {
     generatorSource: 'PRECOMPUTED_DEMO',
     modelName: analysis.tumorEvidenceScore >= 0.5 && decision.type === 'accept'
       ? 'gpt-5.6-sol / precomputed'
-      : 'Pathorchestra structured draft v1',
+      : 'PARVISIGHT structured draft v1',
     report: reportContent(analysis, decision, language),
     validationErrors: [],
     errorMessage: null,

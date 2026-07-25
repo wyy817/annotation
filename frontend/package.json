@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "dev:demo": "vite --mode demo",
-    "build": "vite build",
+    "build": "npm run build:demo",
+    "build:local": "vite build --outDir dist-local",
     "build:demo": "vite build --mode demo",
     "check:visual": "node scripts/visual-check.mjs",
     "preview": "vite preview"

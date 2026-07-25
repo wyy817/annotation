@@ -1,5 +1,5 @@
 export default {
-  brandName: 'Pathorchestra',
+  brandName: 'PARVISIGHT',
   brandTagline: 'Clinical evidence workspace',
   common: {
     skipToContent: 'Skip to main content',
@@ -21,7 +21,7 @@ export default {
   auth: {
     secureAccess: 'Secure local access',
     localBoundary: 'Authentication and file upload are enabled only in the local system.',
-    loginTitle: 'Sign in to Pathorchestra',
+    loginTitle: 'Sign in to PARVISIGHT',
     loginSubtitle: 'Use your approved hospital workspace account.',
     registerTitle: 'Request an account',
     registerSubtitle: 'New accounts require approval from a system administrator.',
@@ -104,6 +104,10 @@ export default {
     clearFilters: 'Clear filters',
     openCase: 'Open case',
     readCase: 'View case',
+    deleteCase: 'Delete case',
+    deleteCaseTitle: 'Delete case',
+    deleteCaseConfirm: 'Delete case "{id}"? Only cases with no analysis history can be deleted.',
+    deleteCaseSuccess: 'Case deleted',
     summaryAttention: 'Needs attention',
     summaryHighRisk: 'High risk',
     summaryInReview: 'In review',

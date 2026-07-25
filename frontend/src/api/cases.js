@@ -5,6 +5,7 @@ export const caseApi = {
   get: (reference) => http.get(`/cases/${reference}`),
   creationOptions: () => http.get('/cases/creation/options'),
   create: (payload) => http.post('/cases', payload),
+  remove: (reference) => http.delete(`/cases/${reference}`),
   startAnalysis: (reference) => http.post(`/cases/${reference}/ai-analysis`),
   latestAnalysis: (reference) => http.get(`/cases/${reference}/ai-analysis/latest`),
   startReview: (reference) => http.post(`/cases/${reference}/review/start`),

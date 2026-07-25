@@ -8,7 +8,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from main import app
-from pathorchestra_ai.jobs import AnalysisJobManager, AnalysisRuntimeSettings
+from parvisight_ai.jobs import AnalysisJobManager, AnalysisRuntimeSettings
 
 
 def _job_record(job_id: str, status: str = "succeeded") -> dict:

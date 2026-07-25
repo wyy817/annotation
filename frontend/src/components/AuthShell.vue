@@ -1,7 +1,7 @@
 <template>
   <div class="po-auth-shell">
     <header class="po-auth-topbar">
-      <router-link class="po-auth-brand" :to="{ name: 'login' }" aria-label="Pathorchestra">
+      <router-link class="po-auth-brand" :to="{ name: 'login' }" aria-label="PARVISIGHT">
         <span class="po-auth-brand-mark" aria-hidden="true">
           <span></span>
           <span></span>

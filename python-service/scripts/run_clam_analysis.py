@@ -1,4 +1,4 @@
-"""Command-line entry point for a cached Pathorchestra CLAM analysis."""
+"""Command-line entry point for a cached PARVISIGHT CLAM analysis."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 if str(SERVICE_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVICE_ROOT))
 
-from pathorchestra_ai import ClamAnalysisConfig, analyze_wsi
+from parvisight_ai import ClamAnalysisConfig, analyze_wsi
 
 
 def _path(value: str) -> Path:

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pathorchestra_ai.clam_pipeline import (
+from parvisight_ai.clam_pipeline import (
     compute_annotation_overlap,
     compute_candidate_regions,
     discover_checkpoints,

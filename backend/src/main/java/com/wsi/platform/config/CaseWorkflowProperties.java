@@ -4,7 +4,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Data
-@ConfigurationProperties(prefix = "pathorchestra.workflow")
+@ConfigurationProperties(prefix = "parvisight.workflow")
 public class CaseWorkflowProperties {
     private double lowConfidenceDisagreement = 0.15;
     private double boundaryEvidenceMin = 0.35;

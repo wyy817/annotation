@@ -1,4 +1,4 @@
-# Pathorchestra Public Demo Deployment
+# PARVISIGHT（观隅） Public Demo Deployment
 
 This describes how to publish the **static public demo** to the internet. It does
 **not** deploy the clinical system. The Spring API, PostgreSQL, Python GPU
@@ -52,7 +52,7 @@ account.
 1. Sign up for a free Netlify account (GitHub or email) and, when prompted,
    **claim** the site you just dropped so it becomes permanent.
 2. In **Site configuration → Change site name**, rename it to something clean,
-   e.g. `pathorchestra-demo` → `https://pathorchestra-demo.netlify.app`.
+   e.g. `parvisight-demo` → `https://parvisight-demo.netlify.app`.
 
 ## Step 4 — Updating the demo later
 
@@ -85,14 +85,14 @@ styles. The demo makes no cross-origin requests, so `connect-src 'self'` is safe
 
 ## Optional — Custom domain later
 
-If you buy a domain (e.g. `pathorchestra.com`), add it under **Domain
+If you buy a domain (e.g. `parvisight.com`), add it under **Domain
 management** in Netlify and follow its DNS instructions. Netlify issues the TLS
 certificate automatically. Nothing about the build changes.
 
 ## Pre-publish safety checklist
 
 - [ ] You are uploading **`frontend/dist`**, not the repository or `backend/`.
-- [ ] `npm run build:demo` (not `npm run build`) produced the folder — the demo
-      mode is what removes registration/upload/live inference.
+- [ ] `npm run build:demo` or its `npm run build` alias produced the folder -
+      demo mode is what removes registration/upload/live inference.
 - [ ] The uploaded folder contains `demo-ai/`, `_headers`, and `robots.txt`.
 - [ ] The private repo stays private; the LLM relay config is never uploaded.

@@ -1,10 +1,10 @@
-# Pathorchestra Agent Handoff
+# PARVISIGHT Agent Handoff
 
 Last updated: 2026-07-19
 
 ## Objective
 
-Continue the seven-day product-grade prototype for Pathorchestra, initially
+Continue the seven-day product-grade prototype for PARVISIGHT, initially
 focused on breast cancer lymph-node H&E whole-slide images.
 
 The local product must support this browser workflow:
@@ -343,7 +343,7 @@ cd backend
 mvn test
 
 cd ..\python-service
-conda run -n pathorchestra-py --no-capture-output python -m unittest discover -s tests -v
+conda run -n parvisight-py --no-capture-output python -m unittest discover -s tests -v
 
 cd ..\frontend
 npm run build

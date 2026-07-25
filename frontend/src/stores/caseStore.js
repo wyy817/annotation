@@ -4,7 +4,7 @@ import { caseApi } from '@/api/cases'
 import { IS_DEMO_MODE } from '@/config/product'
 import { createDemoCases } from '@/data/demoCases'
 
-const STORAGE_KEY = 'pathorchestra_demo_state_v3'
+const STORAGE_KEY = 'parvisight_demo_state_v3'
 const STORAGE_VERSION = 3
 
 function loadDemoCases() {
@@ -94,6 +94,16 @@ export const useCaseStore = defineStore('cases', () => {
   async function createCase(payload) {
     const response = await caseApi.create(payload)
     return upsert(response.data)
+  }
+
+  async function deleteCase(caseId) {
+    if (IS_DEMO_MODE) {
+      cases.value = cases.value.filter((item) => item.id !== caseId)
+      return true
+    }
+    await caseApi.remove(caseId)
+    cases.value = cases.value.filter((item) => item.id !== caseId)
+    return true
   }
 
   function appendAudit(caseItem, type, actor, detailKey, at) {
@@ -213,6 +223,7 @@ export const useCaseStore = defineStore('cases', () => {
     loadCases,
     loadCase,
     createCase,
+    deleteCase,
     startReview,
     recordPathologistDecision,
     recordSeniorReview,

@@ -238,6 +238,40 @@ class ClinicalCaseServiceTest {
         verify(caseSlideMapper).insert(any(ClinicalCaseSlide.class));
     }
 
+    @Test
+    void adminCanDeleteReadyCaseWithoutAnalysisHistory() {
+        authenticate(ADMIN_ID, "AI_DATA_ADMIN");
+        when(caseMapper.selectOne(any())).thenReturn(caseItem("READY", PATH_ID));
+        when(analysisRunMapper.selectCount(any())).thenReturn(0L);
+        when(decisionMapper.selectCount(any())).thenReturn(0L);
+
+        service.delete(CASE_REF);
+
+        verify(caseMapper).deleteById(CASE_ID);
+    }
+
+    @Test
+    void deletionRejectsCasesWithAnalysisHistory() {
+        authenticate(ADMIN_ID, "AI_DATA_ADMIN");
+        when(caseMapper.selectOne(any())).thenReturn(caseItem("READY", PATH_ID));
+        when(analysisRunMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.delete(CASE_REF))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("analysis history");
+        verify(caseMapper, never()).deleteById(any(java.io.Serializable.class));
+    }
+
+    @Test
+    void onlyAdminRolesCanDeleteCases() {
+        authenticate(PATH_ID, "ANNOTATOR");
+        when(caseMapper.selectOne(any())).thenReturn(caseItem("READY", PATH_ID));
+
+        assertThatThrownBy(() -> service.delete(CASE_REF))
+                .isInstanceOf(SecurityException.class);
+        verify(caseMapper, never()).deleteById(any(java.io.Serializable.class));
+    }
+
     // ---------------------------------------------------------------- CLAM review gate
 
     @Test

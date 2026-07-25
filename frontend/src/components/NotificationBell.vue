@@ -8,9 +8,20 @@
   >
     <!-- Trigger: bell button with badge -->
     <template #reference>
-      <el-badge :value="unreadCount || ''" :hidden="unreadCount === 0" type="danger">
+      <el-badge
+        class="po-notification-bell"
+        :value="unreadCount || ''"
+        :hidden="unreadCount === 0"
+        type="danger"
+      >
         <el-tooltip :content="$t('notif.tooltip')" placement="bottom">
-          <el-button size="small" :icon="Bell" circle @click="onOpen" />
+          <el-button
+            class="po-notification-button"
+            :aria-label="$t('notif.tooltip')"
+            :icon="Bell"
+            circle
+            @click="onOpen"
+          />
         </el-tooltip>
       </el-badge>
     </template>
@@ -93,6 +104,23 @@ function formatTime(ts) {
 </script>
 
 <style scoped>
+.po-notification-bell {
+  display: inline-flex;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+}
+
+.po-notification-button {
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  aspect-ratio: 1;
+}
+
 .notif-header {
   display: flex;
   align-items: center;

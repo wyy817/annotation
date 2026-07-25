@@ -135,6 +135,25 @@ public class ClinicalCaseService {
     }
 
     @Transactional
+    public void delete(String reference) {
+        UserContext.UserInfo actor = requireUser();
+        requireAnyRole(actor, "AI_DATA_ADMIN", "SYSTEM_ADMIN");
+        ClinicalCase item = requireCase(reference);
+        if (!"READY".equals(item.getStatus())) {
+            throw new IllegalStateException("Only cases that have not entered review can be deleted");
+        }
+        if (analysisRunMapper.selectCount(new LambdaQueryWrapper<AiAnalysisRun>()
+                .eq(AiAnalysisRun::getCaseReference, reference)) > 0) {
+            throw new IllegalStateException("Cases with analysis history cannot be deleted");
+        }
+        if (decisionMapper.selectCount(new LambdaQueryWrapper<ClinicalCaseDecision>()
+                .eq(ClinicalCaseDecision::getCaseId, item.getId())) > 0) {
+            throw new IllegalStateException("Cases with clinical decisions cannot be deleted");
+        }
+        caseMapper.deleteById(item.getId());
+    }
+
+    @Transactional
     public ClinicalCaseView createSeedIfAbsent(
             String caseReference,
             String accession,

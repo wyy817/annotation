@@ -68,7 +68,7 @@ public class AiReportGenerator {
             JsonNode fallback = deterministicFallback(draft, analysis);
             draft.setStatus("FALLBACK");
             draft.setGeneratorSource("DETERMINISTIC_FALLBACK");
-            draft.setModelName("pathorchestra-deterministic-v1");
+            draft.setModelName("parvisight-deterministic-v1");
             draft.setReportPayload(fallback.toString());
             draft.setErrorMessage(safeMessage(error));
         } finally {

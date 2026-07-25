@@ -1,8 +1,8 @@
-# Pathorchestra
+# PARVISIGHT（观隅）
 
 **An AI-assisted pathology workflow platform for breast cancer lymph-node H&E whole-slide images.**
 
-Pathorchestra turns incoming whole-slide image (WSI) cases into a prioritized work
+PARVISIGHT turns incoming whole-slide image (WSI) cases into a prioritized work
 queue, presents explainable image and text evidence in the slide viewer, keeps a
 qualified pathologist in control of every decision, and routes reviewed
 annotations into a governed feedback pool.
@@ -172,8 +172,8 @@ installation selector](https://pytorch.org/get-started/locally/) for the target
 driver, and install the remaining pinned dependencies afterwards:
 
 ```powershell
-conda create -n pathorchestra-py python=3.11 -y
-conda activate pathorchestra-py
+conda create -n parvisight-py python=3.11 -y
+conda activate parvisight-py
 
 # Install the CUDA-compatible torch and torchvision wheels selected for the host.
 # The current verified environment reports:
@@ -188,8 +188,8 @@ the active Conda environment (`<conda-env>\Library\bin`) and, when present,
 in the `openslide-bin` Python package. The simplest Windows setup is:
 
 ```powershell
-conda install -n pathorchestra-py -c conda-forge openslide -y
-conda run -n pathorchestra-py python -c "import openslide; print(openslide.__file__)"
+conda install -n parvisight-py -c conda-forge openslide -y
+conda run -n parvisight-py python -c "import openslide; print(openslide.__file__)"
 ```
 
 If using a pip-only environment instead, install `openslide-bin` alongside the
@@ -201,7 +201,7 @@ will fail.
 Verify PyTorch and CUDA from the environment that will run FastAPI:
 
 ```powershell
-conda run -n pathorchestra-py python -c "import torch, torchvision; print(torch.__version__, torchvision.__version__, torch.version.cuda); print('CUDA available:', torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
+conda run -n parvisight-py python -c "import torch, torchvision; print(torch.__version__, torchvision.__version__, torch.version.cuda); print('CUDA available:', torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
 ```
 
 ### CLAM source tree
@@ -209,13 +209,13 @@ conda run -n pathorchestra-py python -c "import torch, torchvision; print(torch.
 This project imports the original CLAM model classes directly from a separate
 checkout; CLAM is not vendored into this repository and does not need to be
 installed as a second Python package. The default launcher expects the source
-tree beside this repository under `PathorchestraData\CLAM` and checks for
+tree beside this repository under `PARVISIGHTData\CLAM` and checks for
 `CLAM\models\model_clam.py`.
 
 The source repository is [mahmoodlab/CLAM](https://github.com/mahmoodlab/CLAM):
 
 ```powershell
-$dataRoot = "D:\Users\yijun\OneDrive\ic_gcl\PathorchestraData"
+$dataRoot = "D:\Users\yijun\OneDrive\ic_gcl\PARVISIGHTData"
 New-Item -ItemType Directory -Force -Path $dataRoot | Out-Null
 git clone https://github.com/mahmoodlab/CLAM.git "$dataRoot\CLAM"
 Test-Path "$dataRoot\CLAM\models\model_clam.py"
@@ -259,14 +259,14 @@ folder](https://drive.google.com/drive/folders/1NZ82z0U_cexP6zkx1mRk-QeJyKWk4Q7z
 then extract the `camelyon_40x_cv` directory under:
 
 ```text
-<PathorchestraData>\models\clam\camelyon_40x_cv\
+<PARVISIGHTData>\models\clam\camelyon_40x_cv\
 ```
 
 The current runtime uses the 100% CLAM ensemble and requires all ten fold
 files in this exact directory:
 
 ```text
-PathorchestraData\models\clam\camelyon_40x_cv\
+PARVISIGHTData\models\clam\camelyon_40x_cv\
 └── camelyon_40x_cv_CLAM_100_s1\
     ├── s_0_checkpoint.pt
     ├── s_1_checkpoint.pt
@@ -309,7 +309,7 @@ With the default launcher and this repository location, the relevant files are:
 D:\Users\yijun\OneDrive\ic_gcl\
 +-- annotation\
 |   `-- python-service\model\mobile_sam.pt
-`-- PathorchestraData\
+`-- PARVISIGHTData\
     +-- CLAM\
     +-- models\clam\camelyon_40x_cv\camelyon_40x_cv_CLAM_100_s1\
     |   `-- s_0_checkpoint.pt ... s_9_checkpoint.pt
@@ -317,17 +317,17 @@ D:\Users\yijun\OneDrive\ic_gcl\
 ```
 
 The default data root is the parent directory of the repository plus
-`PathorchestraData`. To store assets elsewhere, create the directory first and
+`PARVISIGHTData`. To store assets elsewhere, create the directory first and
 pass it explicitly:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path "D:\PathorchestraData" | Out-Null
-.\scripts\start-local.ps1 -DataRoot "D:\PathorchestraData" -LlmModelOverride "gpt-5.6-sol"
+New-Item -ItemType Directory -Force -Path "D:\PARVISIGHTData" | Out-Null
+.\scripts\start-local.ps1 -DataRoot "D:\PARVISIGHTData" -LlmModelOverride "gpt-5.6-sol"
 ```
 
 Keep WSI files, generated tiles, feature caches, checkpoints, and reports
 outside Git. The application writes runtime data under `backend/data/` and
-`PathorchestraData/runs/`; these locations are intentionally excluded from the
+`PARVISIGHTData/runs/`; these locations are intentionally excluded from the
 repository.
 
 ### Optional live LLM reporting
@@ -344,8 +344,8 @@ model: <relay-model-alias>
 ```
 
 The startup script discovers this file or accepts `-RelayConfigPath`; it passes
-the values to Spring as `PATHORCHESTRA_LLM_BASE_URL`,
-`PATHORCHESTRA_LLM_API_KEY`, and `PATHORCHESTRA_LLM_MODEL` without copying or
+the values to Spring as `PARVISIGHT_LLM_BASE_URL`,
+`PARVISIGHT_LLM_API_KEY`, and `PARVISIGHT_LLM_MODEL` without copying or
 logging the key. Never commit the file or put the key in frontend code.
 
 ## Getting started
@@ -386,9 +386,9 @@ cd frontend
 npm install
 npm run dev                  # local mode against the Spring API
 
-# AI service (FastAPI, in the pathorchestra-py conda env)
+# AI service (FastAPI, in the parvisight-py conda env)
 cd python-service
-conda run -n pathorchestra-py python -m uvicorn main:app --port 8000
+conda run -n parvisight-py python -m uvicorn main:app --port 8000
 ```
 
 Backend datasource defaults live in `backend/src/main/resources/application.yml`
@@ -404,12 +404,12 @@ mvn test
 
 # AI service
 cd python-service
-conda run -n pathorchestra-py --no-capture-output python -m unittest discover -s tests -v
+conda run -n parvisight-py --no-capture-output python -m unittest discover -s tests -v
 
-# Frontend — production build, demo build, and headless visual regression
+# Frontend - public build, local static build, and headless visual regression
 cd frontend
-npm run build
-npm run build:demo
+npm run build               # public demo, outputs frontend/dist
+npm run build:local         # local-system build, outputs frontend/dist-local
 npm run check:visual         # drives Edge over the demo + local flows
 ```
 

@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 
 const edgePath = process.argv[2]
 const baseUrl = process.argv[3] || 'http://127.0.0.1:5173'
-const outputDirectory = resolve(process.argv[4] || join(tmpdir(), 'pathorchestra-ui-smoke'))
+const outputDirectory = resolve(process.argv[4] || join(tmpdir(), 'parvisight-ui-smoke'))
 const localBaseUrl = process.argv[5]
 const debuggingPort = 9337
 
@@ -238,7 +238,7 @@ async function runSuite(client) {
   const conditionalStatus = await evaluate(client, 'document.querySelector(".po-status-senior_review")?.textContent.trim()')
   assert(report, conditionalStatus === 'Senior review', 'Discordant case routes to conditional senior review', { conditionalStatus })
 
-  await evaluate(client, 'localStorage.setItem("pathorchestra_demo_role", "REVIEWER")')
+  await evaluate(client, 'localStorage.setItem("parvisight_demo_role", "REVIEWER")')
   await client.send('Page.reload', { ignoreCache: true })
   await settle(client)
   const reviewerOptions = await evaluate(client, 'document.querySelectorAll(".po-decision-options button").length')
@@ -248,7 +248,7 @@ async function runSuite(client) {
   const approvedStatus = await evaluate(client, 'document.querySelector(".po-status-completed")?.textContent.trim()')
   assert(report, approvedStatus === 'Completed', 'Senior approval completes the case', { approvedStatus })
 
-  await evaluate(client, 'localStorage.setItem("pathorchestra_demo_role", "AI_DATA_ADMIN")')
+  await evaluate(client, 'localStorage.setItem("parvisight_demo_role", "AI_DATA_ADMIN")')
   await client.send('Page.navigate', { url: baseUrl + '/#/feedback' })
   await settle(client)
   await client.send('Page.reload', { ignoreCache: true })
@@ -307,8 +307,8 @@ async function runSuite(client) {
       '  scrollWidth: document.documentElement.scrollWidth',
       '}))()',
     ].join('\n'))
-    assert(report, localLogin.heading === 'Sign in to Pathorchestra', 'Local login uses the product authentication shell', localLogin)
-    assert(report, localLogin.brand === 'Pathorchestra', 'Local login preserves the product brand signal', localLogin)
+    assert(report, localLogin.heading === 'Sign in to PARVISIGHT', 'Local login uses the product authentication shell', localLogin)
+    assert(report, localLogin.brand === 'PARVISIGHT', 'Local login preserves the product brand signal', localLogin)
     assert(report, localLogin.fields === 2, 'Local login exposes username and password fields', localLogin)
     assert(report, localLogin.scrollWidth <= localLogin.innerWidth, 'Local desktop login has no horizontal overflow', localLogin)
     await capture(client, 'local-login-1440.png')
@@ -358,7 +358,7 @@ async function runSuite(client) {
       '  scrollWidth: document.documentElement.scrollWidth',
       '}))()',
     ].join('\n'))
-    assert(report, localChineseLogin.heading === '登录 Pathorchestra', 'Chinese local authentication translation renders', localChineseLogin)
+    assert(report, localChineseLogin.heading === '登录观隅', 'Chinese local authentication translation renders', localChineseLogin)
     assert(report, localChineseLogin.scrollWidth <= localChineseLogin.innerWidth, 'Chinese local authentication has no horizontal overflow', localChineseLogin)
     await capture(client, 'local-login-390-zh.png')
 
@@ -413,7 +413,7 @@ async function runSuite(client) {
 
     await click(client, '.library-actions .el-button--primary')
     await setValue(client, '.el-dialog input', 'UI integration workspace')
-    await setValue(client, '.el-dialog textarea', 'Created through the authenticated Pathorchestra frontend')
+    await setValue(client, '.el-dialog textarea', 'Created through the authenticated PARVISIGHT frontend')
     await click(client, '.el-dialog__footer .el-button--primary')
     await waitFor(
       client,
@@ -435,7 +435,7 @@ async function runSuite(client) {
 }
 
 await mkdir(outputDirectory, { recursive: true })
-const profileDirectory = await mkdtemp(join(tmpdir(), 'pathorchestra-edge-profile-'))
+const profileDirectory = await mkdtemp(join(tmpdir(), 'parvisight-edge-profile-'))
 const edge = spawn(
   edgePath,
   [

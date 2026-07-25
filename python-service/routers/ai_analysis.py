@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from pathorchestra_ai.jobs import AnalysisJobManager, AnalysisRuntimeSettings
+from parvisight_ai.jobs import AnalysisJobManager, AnalysisRuntimeSettings
 
 router = APIRouter()
 

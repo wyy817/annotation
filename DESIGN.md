@@ -1,5 +1,5 @@
 ---
-name: Pathorchestra
+name: PARVISIGHT / 观隅
 description: A precise, restrained evidence workspace for AI-assisted pathology review.
 colors:
   harbor-cobalt: "oklch(0.45 0.10 230)"
@@ -135,7 +135,7 @@ components:
 
 **Creative North Star: "The Quiet Evidence Bench"**
 
-Pathorchestra is designed as a quiet evidence bench: a disciplined clinical work surface where cases, slide evidence, report evidence, and human decisions are arranged for comparison without visual theater. The interface earns trust through stable geometry, explicit uncertainty, traceable status, and a clear distinction between AI suggestion and clinician judgment.
+PARVISIGHT is designed as a quiet evidence bench: a disciplined clinical work surface where cases, slide evidence, report evidence, and human decisions are arranged for comparison without visual theater. The interface earns trust through stable geometry, explicit uncertainty, traceable status, and a clear distinction between AI suggestion and clinician judgment.
 
 Light, low-chroma product surfaces carry the queue and administrative workflow; the WSI canvas becomes dark only when darkness improves tissue inspection. Information density is deliberate rather than crowded: rows and panels stay compact, primary actions are scarce, and every state change is visible without moving the user's work.
 

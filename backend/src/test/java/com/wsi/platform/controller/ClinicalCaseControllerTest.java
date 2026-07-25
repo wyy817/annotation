@@ -79,6 +79,14 @@ class ClinicalCaseControllerTest {
     }
 
     @Test
+    void adminCanDeleteCase() {
+        Result<Void> result = controller().delete(CASE_REF);
+
+        assertThat(result.getCode()).isEqualTo(200);
+        verify(caseService).delete(CASE_REF);
+    }
+
+    @Test
     void securityExceptionMapsToForbidden() {
         when(caseService.getForCurrentUser(CASE_REF))
                 .thenThrow(new SecurityException("Case is assigned to another pathologist"));

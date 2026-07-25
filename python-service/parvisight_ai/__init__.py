@@ -1,4 +1,4 @@
-"""AI analysis primitives for the Pathorchestra prototype."""
+"""AI analysis primitives for the PARVISIGHT prototype."""
 
 from .clam_pipeline import ClamAnalysisConfig, analyze_wsi
 
