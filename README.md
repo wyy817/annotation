@@ -5,7 +5,7 @@
 > [!IMPORTANT]
 > A **seven-day product-grade prototype** and **clinical decision-support demonstration** built on public CAMELYON16 sample data. It is not a diagnostic system or a validated medical device.
 
-HackDKU 2025 → Imperial College London Global Challenge Lab 2026 (Imperial Enterprise Lab). Built by a two-person team; project lead: **Yuyao Wang**.
+HackDKU 2025 → Imperial College London Global Challenge Lab 2026 (Imperial Enterprise Lab). Built by a two-person team.
 
 <p align="center">
   <img src="frontend/public/demo-ai/camelyon16-tumor-001/relative_attention_overview.png" width="48%" alt="Relative CLAM attention over a CAMELYON16 tumour slide" />
