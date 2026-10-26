@@ -55,3 +55,16 @@ frontend/*.log
 
 # ===== Design tool scratch =====
 .impeccable/
+
+# ===== Model weights (download separately, see docs/SETUP.md) =====
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+!python-service/model/.gitkeep
+
+# ===== Personal drafts and secrets =====
+大模型api接口.txt
+*.docx
+*.pdf
+*_temp.md
